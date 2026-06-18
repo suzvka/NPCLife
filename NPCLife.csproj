@@ -9,8 +9,8 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <LangVersion>default</LangVersion>
     <Version>1.0.0</Version>
-    <Authors>RimLife Team</Authors>
-    <Description>NPCLife - LLM-driven narrative framework for RimWorld mods. Provides Agent pipeline, MCP tools, workspace management, and LLM integration.</Description>
+    <Authors>NPCLife Contributors</Authors>
+    <Description>NPCLife - General-purpose LLM-driven narrative framework. Multi-agent pipeline with Director/Screenwriter/Freelancer roles, MCP tool protocol, workspace-based storyline management, and LLM backend integration. Game-agnostic core with host-injected adapters.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>

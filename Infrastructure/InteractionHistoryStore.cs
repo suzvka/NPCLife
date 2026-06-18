@@ -9,8 +9,8 @@ using NPCLife.Core;
 namespace NPCLife.Infrastructure
 {
     /// <summary>
-    /// IInteractionStore 的 RimWorld 实现。
-    /// append-only 流水，不裁剪，持久化到存档文件。
+    /// IInteractionStore 的默认实现。
+    /// append-only 流水，不裁剪，持久化到存储后端。
     /// 语义层 KV 由上层按需触发计算，写入 CacheStore。
     /// </summary>
     public class InteractionHistoryStore : IInteractionStore, IDisposable

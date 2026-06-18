@@ -3,8 +3,8 @@ using System.Collections.Generic;
 namespace NPCLife.Cards
 {
     /// <summary>
-    /// 殖民地全局上下文：所有卡片的共享时间/状态环境。
-    /// 纯 DTO，零 RimWorld 依赖。
+    /// 世界全局上下文 (World Context)：所有卡片的共享时间/状态环境。
+    /// 纯 DTO，由宿主填充数据。
     /// </summary>
     public class ColonyContext : IExtensibleCard
     {

@@ -2,7 +2,7 @@ namespace NPCLife.Framework
 {
     /// <summary>
     /// 统一日志接口。所有核心组件通过此接口输出日志，
-    /// 由宿主层（RimWorld 适配层）注入具体实现。
+    /// 由宿主层注入具体实现。
     /// 零外部依赖。
     /// </summary>
     public interface ILogger

@@ -10,7 +10,7 @@ namespace NPCLife.Infrastructure.Mcp
     /// 系统的 MCP 元工具集。提供 Skill 列表查询、激活、反激活能力。
     /// 属于 system skill，对所有 workspace 隐式可用。
     /// 通过 IMcpHookProvider 接口注入依赖（WorkspaceManager + timeProvider + ILogger），
-    /// 不再直接引用 RimWorld。
+    /// 通过接口注入依赖，零静态耦合。
     /// </summary>
     public class SystemMcpProvider : IMcpHookProvider
     {

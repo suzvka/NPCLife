@@ -8,7 +8,7 @@ namespace NPCLife.Framework
     /// <summary>
     /// 主线程任务调度器。零外部依赖。
     /// 从任意线程 Enqueue action，由主线程周期调用 DrainQueue 执行。
-    /// 日志接口需由宿主层注入（如 RimWorld 适配层设置 Logger）。
+    /// 日志接口需由宿主层注入（如游戏适配层设置 Logger）。
     /// </summary>
     public static class MainThreadDispatcher
     {

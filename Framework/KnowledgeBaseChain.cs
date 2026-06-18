@@ -9,7 +9,7 @@ namespace NPCLife.Framework
     /// L1 为本地缓存（BuiltInKnowledgeBase），L2 为 GameDef 查询，L3 为外部 LLM/Wiki。
     /// TryLookup 依次尝试各层，首个命中即返回。L1 仅由 Agent 通过 learn_term 写入，
     /// 系统不做自动回写，保证 L1 中沉淀的是 Agent 主动学习的高质量关联知识。
-    /// 纯静态友好的责任链设计，零 RimWorld 依赖。
+    /// 纯静态友好的责任链设计，零外部依赖。
     /// </summary>
     public class KnowledgeBaseChain : IKnowledgeBase
     {

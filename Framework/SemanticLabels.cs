@@ -10,7 +10,7 @@ namespace NPCLife.Framework
         // ============================================================
 
         /// <summary>
-        /// 疼痛等级标签。阈值参考 RimWorld PainCategoryDef 体系。
+        /// 疼痛等级标签。阈值参考常见游戏疼痛分级体系。
         /// </summary>
         public static string MapPainTier(float pain)
         {
@@ -94,7 +94,7 @@ namespace NPCLife.Framework
         // ============================================================
 
         /// <summary>
-        /// 热舒适度标签。参考 GenTemperature 舒适区间。
+        /// 热舒适度标签。参考通用温度舒适区间。
         /// </summary>
         public static string MapThermalComfort(float tempCelsius)
         {
@@ -146,7 +146,7 @@ namespace NPCLife.Framework
         }
 
         /// <summary>
-        /// 需求 DefName → 语义紧急标签。覆盖 RimWorld 原版常见需求。
+        /// 需求 DefName → 语义紧急标签。覆盖常见游戏角色需求。
         /// </summary>
         public static string MapNeedUrgency(string defName, float curLevel)
         {
@@ -189,7 +189,7 @@ namespace NPCLife.Framework
         }
 
         /// <summary>
-        /// 将 Faction 关系类型字符串映射为语义标签。纯函数，零 RimWorld 依赖。
+        /// 将 Faction 关系类型字符串映射为语义标签。纯函数，零外部依赖。
         /// </summary>
         public static string MapFactionRelation(string kind)
         {

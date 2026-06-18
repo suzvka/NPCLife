@@ -4,7 +4,7 @@ namespace NPCLife.Cards
 {
     /// <summary>
     /// 环境卡：描述角色所处环境的语义化快照。
-    /// 纯 DTO，零 RimWorld 依赖。
+    /// 纯 DTO，由宿主填充数据。
     /// </summary>
     public class EnvironmentCard : IExtensibleCard
     {

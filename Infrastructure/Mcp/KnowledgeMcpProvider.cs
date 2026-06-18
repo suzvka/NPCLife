@@ -11,7 +11,7 @@ namespace NPCLife.Infrastructure.Mcp
     /// <summary>
     /// 内置知识库的 MCP 工具集。提供词条查询、学习、列举、删除和元数据统计能力。
     /// 通过 IMcpHookProvider 接口注入依赖（KnowledgeBase + ILogger），
-    /// 不再直接引用 RimWorld 或全局静态类。
+    /// 通过接口注入依赖，零静态耦合。
     /// </summary>
     public class KnowledgeMcpProvider : IMcpHookProvider
     {

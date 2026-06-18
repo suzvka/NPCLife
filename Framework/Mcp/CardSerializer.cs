@@ -7,7 +7,7 @@ using System.Text;
 namespace NPCLife.Framework.Mcp
 {
     /// <summary>
-    /// Card DTO → JSON 序列化器。零 RimWorld 依赖。
+    /// Card DTO → JSON 序列化器。纯序列化逻辑，零外部依赖。
     /// 供各 MCP Provider 调用，将查询结果转为 LLM 可消费的 JSON。
     /// Infrastructure 层可通过 <see cref="Default"/> 静态实例直接使用。
     /// </summary>

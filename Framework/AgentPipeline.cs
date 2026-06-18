@@ -114,7 +114,7 @@ namespace NPCLife.Framework
     // ================================================================
 
     /// <summary>
-    /// Agent 管道拦截器管理器。纯静态，零 RimWorld 依赖。
+    /// Agent 管道拦截器管理器。纯静态，零外部依赖。
     /// 拦截器按优先级排序执行（priority 越小越先）。
     /// </summary>
     public static class AgentPipeline

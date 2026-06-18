@@ -7,7 +7,7 @@ namespace NPCLife.Framework
 {
     /// <summary>
     /// 框架状态内省接口。提供版本信息、健康检查和能力查询。
-    /// 纯静态，零 RimWorld 依赖。
+    /// 纯静态，零外部依赖。
     ///
     /// 使用方式：
     ///   // 组件注册状态报告器
@@ -35,7 +35,7 @@ namespace NPCLife.Framework
         // ================================================================
 
         /// <summary>框架名称。</summary>
-        public static string FrameworkName => "RimLife";
+        public static string FrameworkName => "NPCLife";
 
         /// <summary>
         /// 框架版本号。从程序集版本自动读取，也可手动设置。

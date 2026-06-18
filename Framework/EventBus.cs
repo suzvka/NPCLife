@@ -7,7 +7,7 @@ namespace NPCLife.Framework
 {
     /// <summary>
     /// 通用事件总线。提供发布/订阅能力，支持命名空间事件名、错误隔离、优先级排序。
-    /// 纯静态，零 RimWorld 依赖。
+    /// 纯静态，零外部依赖。
     ///
     /// 使用示例：
     ///   var unsub = EventBus.Subscribe("agent.activated", args => { ... });

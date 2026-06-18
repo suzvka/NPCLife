@@ -4,8 +4,8 @@ namespace NPCLife.Cards
 {
     /// <summary>
     /// 目标卡：通用抽象——导演 Agent 在任何游戏中都需要「当前被追踪的目标」信息。
-    /// RimWorld 的 Quest 系统仅为其中一个数据来源（Source = "QuestSystem"）。
-    /// 纯 DTO，零 RimWorld 依赖。
+    /// 游戏的 Quest/Task 系统仅为其中一个数据来源（Source = "QuestSystem"）。
+    /// 纯 DTO，由宿主填充数据。
     /// </summary>
     public class ObjectiveCard : IExtensibleCard
     {

@@ -5,8 +5,8 @@ namespace NPCLife.Cards
 {
     /// <summary>
     /// 游戏事件的标准接口。所有具体事件实现必须实现此接口。
-    /// 纯 DTO 接口，零 RimWorld 依赖。
-    /// 标签示例：["Raid", "Combat", "TribalSappers"] — 首标签为具体类型，后续为领域/子类型。
+    /// 纯 DTO 接口，由宿主注入实现。
+    /// 标签示例：["Combat", "Social", "Exploration"] — 首标签为具体类型，后续为领域/子类型。
     /// </summary>
     public interface IGameEvent
     {

@@ -30,7 +30,7 @@ namespace NPCLife.Infrastructure.Knowledge
         /// <summary>
         /// 创建内置知识库实例。
         /// </summary>
-        /// <param name="store">缓存存储（通常为 RimLifeCore.CacheStore）。</param>
+        /// <param name="store">缓存存储（通常为主程序提供的 CacheStore 实现）。</param>
         /// <param name="logger">日志接口。</param>
         /// <param name="maxCapacity">最大条目数，超出时触发 LRU 淘汰。默认 500。</param>
         public BuiltInKnowledgeBase(ICacheStore store, ILogger logger, int maxCapacity = DefaultMaxCapacity)

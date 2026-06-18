@@ -9,7 +9,7 @@ namespace NPCLife.Framework.Mcp
 {
     /// <summary>
     /// MCP 工具运行时调用器。将 JSON 参数字符串反序列化、反射调用目标方法、并序列化返回值。
-    /// 纯静态，零 RimWorld 依赖。
+    /// 纯静态，零外部依赖。
     /// </summary>
     public static class McpToolInvoker
     {

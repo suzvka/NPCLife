@@ -8,7 +8,7 @@ namespace NPCLife.Framework.Mcp
 {
     /// <summary>
     /// MCP Skill 注册表。管理技能的元数据和工具注册。
-    /// 纯静态，零 RimWorld 依赖。
+    /// 纯静态，零外部依赖。
     /// 
     /// 激活状态由 WorkspaceManager 独家持有。本注册表提供纯函数：
     /// 给定一组 activeSkillIds，返回对应的工具定义或 skill 列表。

@@ -11,7 +11,7 @@ namespace NPCLife.Workspace
 {
     /// <summary>
     /// 编剧 Agent 的 MCP 工具提供者。通过 IMcpHookProvider 接口注入依赖（WorkspaceManager + ILogger），
-    /// 不再直接引用 Infrastructure 或 RimWorld。
+    /// 零静态耦合。
     /// </summary>
     public class WritingMcpProvider : IMcpHookProvider
     {

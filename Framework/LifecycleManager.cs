@@ -6,7 +6,7 @@ namespace NPCLife.Framework
 {
     /// <summary>
     /// 生命周期管理器。统一管理框架组件的初始化、销毁和生命周期钩子。
-    /// 纯静态，零 RimWorld 依赖。
+    /// 纯静态，零外部依赖。
     ///
     /// 核心职责：
     /// 1. 注册/级联销毁 IDisposable 组件

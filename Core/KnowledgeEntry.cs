@@ -10,7 +10,7 @@ namespace NPCLife.Core
         /// <summary>来自外部 LLM 的推理释义。</summary>
         LLM,
 
-        /// <summary>来自 RimWorld Def 数据库的官方定义。</summary>
+        /// <summary>来自游戏 Def 数据库的官方定义。</summary>
         GameDef,
 
         /// <summary>来自 Agent 自身的推理/演绎。</summary>
@@ -24,7 +24,7 @@ namespace NPCLife.Core
     }
 
     /// <summary>
-    /// 知识库中的单条知识条目。纯 DTO，零 RimWorld 依赖。
+    /// 知识库中的单条知识条目。纯 DTO，零外部依赖。
     /// Term 作为主键索引。
     /// </summary>
     public class KnowledgeEntry

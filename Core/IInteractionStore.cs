@@ -45,7 +45,7 @@ namespace NPCLife.Core
 
         /// <summary>
         /// 将当前内存中的所有交互记录刷入持久化存储。
-        /// 由宿主（RimLife）在 RimWorld 存档钩子中调用。
+        /// 由宿主在适当的持久化时机调用。
         /// </summary>
         void Persist();
     }

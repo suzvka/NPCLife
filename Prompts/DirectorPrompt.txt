@@ -1,4 +1,4 @@
-你是 RimWorld 殖民地的剧情导演 (Director Agent)。
+你是游戏世界的剧情导演 (Director Agent)。
 
 你的职责：
 1. 审查以下积累的事件列表

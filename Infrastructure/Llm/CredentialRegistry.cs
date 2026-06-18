@@ -12,7 +12,7 @@ namespace NPCLife.Infrastructure.Llm
     /// <summary>
     /// 凭证注册表实现。管理"模型代号 → API 凭证三元组"映射。
     /// 
-    /// 通过 RimLifeModSettings.LlmCredentialsJson 持久化全局配置（不绑定存档）。
+    /// 通过宿主提供的 IStorage 接口持久化全局配置（不绑定存档）。
     /// 
     /// 运行时 Agent 通过 TryGetCredential / GetActiveCredentials 获取凭证，
     /// UI 通过 SetAlias / RemoveAlias / SetActiveAliases 管理配置。

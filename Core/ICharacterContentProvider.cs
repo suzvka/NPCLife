@@ -1,7 +1,8 @@
 namespace NPCLife.Core
 {
     /// <summary>
-    /// Pawn 视图层级常量。与 <see cref="ICharacterContentProvider.GetContent"/> 的 view 参数配合使用，
+    /// Pawn 视图层级常量。命名继承自早期宿主，实际为通用的角色数据视图层级。
+    /// 与 <see cref="ICharacterContentProvider.GetContent"/> 的 view 参数配合使用，
     /// 消除拼写风险。
     /// </summary>
     public static class PawnView

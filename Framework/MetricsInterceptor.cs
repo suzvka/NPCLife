@@ -10,7 +10,7 @@ namespace NPCLife.Framework
     /// Token 消耗通过 EventBus 订阅 llm.response_received 独立采集，
     /// 知识库命中率通过 KnowledgeBaseChain.OnLookupResult 回调采集。
     ///
-    /// 框架侧纯逻辑组件，零 RimWorld 依赖。
+    /// 框架侧纯逻辑组件，零外部依赖。
     /// </summary>
     public class MetricsInterceptor : AgentInterceptorBase
     {

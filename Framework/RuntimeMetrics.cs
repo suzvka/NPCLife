@@ -16,7 +16,7 @@ namespace NPCLife.Framework
     }
 
     /// <summary>
-    /// 运行时度量容器。纯静态，零 RimWorld 依赖。
+    /// 运行时度量容器。纯静态，零外部依赖。
     /// 所有采集通过 MetricsInterceptor 和 EventBus 订阅驱动，不侵入核心循环。
     ///
     /// 使用方式：

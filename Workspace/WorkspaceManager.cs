@@ -14,7 +14,7 @@ namespace NPCLife.Workspace
     /// <summary>
     /// 工作空间管理器。职责：CRUD、分支/合并结构操作、事件路由。
     /// 工作空间内部组件（事件池、技能槽）通过 IWorkspace 接口访问，管理器不关心。
-    /// 通过 RimLifeCore.SaveStore 持久化到存档文件。
+    /// 通过 IAuthorityStore 持久化到存储后端。
     /// </summary>
     public class WorkspaceManager : IDisposable, IWorkspaceManager
     {
