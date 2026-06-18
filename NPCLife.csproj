@@ -21,11 +21,35 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="NPCLife.Tests\**" />
+    <EmbeddedResource Remove="NPCLife.Tests\**" />
+    <None Remove="NPCLife.Tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Include="Prompts\*.txt" />
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="NPCLife.Tests\**" />
+    <EmbeddedResource Remove="NPCLife.Tests\**" />
+    <None Remove="NPCLife.Tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="NPCLife.Tests\**" />
+    <EmbeddedResource Remove="NPCLife.Tests\**" />
+    <None Remove="NPCLife.Tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>NPCLife.Tests</_Parameter1>
+    </AssemblyAttribute>
   </ItemGroup>
 
 </Project>
