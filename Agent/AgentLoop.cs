@@ -6,6 +6,7 @@ using NPCLife.Framework.Llm;
 using NPCLife.Framework.Mcp;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -211,6 +212,12 @@ namespace NPCLife.Agent
                 {
                     ct.ThrowIfCancellationRequested();
 
+                    // Transcript 验证：每轮 LLM 调用前检查消息历史结构
+                    var validation = TranscriptValidator.Validate(_messages);
+                    if (!validation.IsValid)
+                        throw new InvalidOperationException(
+                            $"Transcript validation failed: {validation.Reason}");
+
                     // --- CallingLlm ---
                     _state = AgentRunState.CallingLlm;
                     var request = BuildLlmRequest();
@@ -230,10 +237,6 @@ namespace NPCLife.Agent
                     if (response == null || !response.IsSuccess)
                         throw new InvalidOperationException(response?.Error ?? "null response");
 
-                    // 将 LLM 回复加入消息历史
-                    if (!string.IsNullOrEmpty(response.Content))
-                        _messages.Add(LlmMessage.Assistant(response.Content));
-
                     EventBus.Publish(FrameworkEvents.LlmResponseReceived, EventArg.WithPayload(
                         ("runId", runId),
                         ("hasToolCalls", response.HasToolCalls.ToString()),
@@ -245,18 +248,23 @@ namespace NPCLife.Agent
                     ));
 
                     if (!response.HasToolCalls)
-                        break; // 无工具调用 → 完成
+                    {
+                        // 纯文本回复：追加唯一 assistant 消息，结束循环
+                        _messages = AppendAssistantTurn(_messages, response, null).ToList();
+                        break;
+                    }
 
                     _round++;
                     if (_round >= _maxRounds)
                     {
                         _logger.Warning($"[NPCLife.Agent] Reached max rounds ({_maxRounds}). Ending loop.");
+                        // 达到上限时仍追加 assistant（保持 transcript 完整性），然后退出
+                        _messages = AppendAssistantTurn(_messages, response, null).ToList();
                         break;
                     }
 
                     // --- ExecutingTools ---
                     _state = AgentRunState.ExecutingTools;
-                    var toolCallsForMessage = new List<LlmToolCall>();
                     var toolResults = new List<(string id, string result)>();
 
                     foreach (var tc in response.ToolCalls)
@@ -291,29 +299,16 @@ namespace NPCLife.Agent
                             ("toolName", tc.Name), ("resultLength", (result?.Length ?? 0).ToString())
                         ));
 
-                        toolCallsForMessage.Add(tc);
                         toolResults.Add((tc.Id, result));
 
                         _logger.Message($"[NPCLife.Agent] Tool result ({tc.Name}): {TruncateResult(result)}");
                     }
 
                     // --- AppendingToolResults ---
+                    // 同一个 response 只生成一条 assistant 消息（content + tool_calls），
+                    // 后跟每条 tool 结果消息。杜绝双重写入。
                     _state = AgentRunState.AppendingToolResults;
-
-                    // 添加含 tool_calls 的 assistant 消息
-                    var assistantMsg = new LlmMessage
-                    {
-                        Role = "assistant",
-                        Content = response.Content ?? "",
-                        ToolCalls = toolCallsForMessage
-                    };
-                    _messages.Add(assistantMsg);
-
-                    // 为每个工具调用添加 tool 结果消息
-                    foreach (var (id, result) in toolResults)
-                    {
-                        _messages.Add(LlmMessage.ToolResult(id, result));
-                    }
+                    _messages = AppendAssistantTurn(_messages, response, toolResults).ToList();
 
                     EventBus.Publish(FrameworkEvents.AgentRoundComplete, EventArg.WithPayload(
                         ("runId", runId),
@@ -398,6 +393,45 @@ namespace NPCLife.Agent
                 ("rounds", _round.ToString()),
                 ("error", error ?? "unknown")
             ));
+        }
+
+        // ================================================================
+        // Transcript 追加（纯函数，同一 response 只生成一条 assistant）
+        // ================================================================
+
+        /// <summary>
+        /// 将一个完整的 assistant turn 追加到消息历史，返回新列表。
+        /// 约束：同一个 <paramref name="response"/> 只生成一条 assistant message。
+        /// 若有 <paramref name="toolResults"/>，assistant 带 tool_calls，后跟每条 tool 结果。
+        /// </summary>
+        private static IReadOnlyList<LlmMessage> AppendAssistantTurn(
+            IReadOnlyList<LlmMessage> history,
+            LlmResponse response,
+            IReadOnlyList<(string id, string result)> toolResults)
+        {
+            var result = new List<LlmMessage>(history.Count + 1 + (toolResults?.Count ?? 0));
+            result.AddRange(history);
+
+            if (toolResults != null && toolResults.Count > 0)
+            {
+                // 有工具调用：一条 assistant（content + tool_calls）+ N 条 tool 结果
+                result.Add(new LlmMessage
+                {
+                    Role = "assistant",
+                    Content = response.Content ?? "",
+                    ToolCalls = response.ToolCalls
+                });
+
+                foreach (var (id, toolResult) in toolResults)
+                    result.Add(LlmMessage.ToolResult(id, toolResult));
+            }
+            else
+            {
+                // 纯文本回复：一条 assistant（仅 content，无 tool_calls）
+                result.Add(LlmMessage.Assistant(response.Content ?? ""));
+            }
+
+            return result;
         }
 
         // ================================================================
