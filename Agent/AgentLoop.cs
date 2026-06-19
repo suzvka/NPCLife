@@ -7,10 +7,26 @@ using NPCLife.Framework.Mcp;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace NPCLife.Agent
 {
+    /// <summary>
+    /// Agent 运行状态枚举。
+    /// </summary>
+    public enum AgentRunState
+    {
+        Idle,
+        DrainingEvents,
+        BuildingRequest,
+        CallingLlm,
+        ExecutingTools,
+        AppendingToolResults,
+        Finishing,
+        Error
+    }
+
     /// <summary>
     /// Agent 循环。纯逻辑组件，零游戏引擎依赖。
     /// 通过订阅 IEventLog.OnThresholdReached 被动激活。
@@ -19,6 +35,9 @@ namespace NPCLife.Agent
     /// 1. 池子通知阈值达到 → OnPoolChanged()
     /// 2. Drain → Prompt → LLM → 工具调用循环
     /// 3. 循环结束 → 重置状态，等待下次通知
+    ///
+    /// 运行时采用显式状态机，以 SemaphoreSlim 防重入，
+    /// CancellationToken 贯穿整条链路，失败路径统一。
     /// </summary>
     public class AgentLoop : IDisposable
     {
@@ -36,7 +55,14 @@ namespace NPCLife.Agent
         private readonly float _temperature;
         private readonly string _modelAlias; // 关联的模型代号
 
-        private bool _isProcessing;
+        // 状态机字段
+        private volatile AgentRunState _state = AgentRunState.Idle;
+        private readonly SemaphoreSlim _gate = new SemaphoreSlim(1, 1);
+        private readonly CancellationTokenSource _disposeCts = new CancellationTokenSource();
+        private static long _runSeq;
+        private string _currentRunId;
+        private Task _currentRun;
+
         private int _round;
         private List<LlmMessage> _messages;
         private IReadOnlyList<IGameEvent> _drained;
@@ -94,227 +120,240 @@ namespace NPCLife.Agent
 
         private void OnPoolChanged()
         {
-            if (_isProcessing) return;
+            if (_state != AgentRunState.Idle) return;
             if (_pool.PendingCount == 0) return;
 
-            // 开始请求链路追踪
-            ErrorHandler.BeginTrace();
-            EventBus.Publish(FrameworkEvents.AgentActivated, EventArg.WithPayload(
-                ("pendingCount", _pool.PendingCount.ToString()),
-                ("totalImportance", _pool.TotalImportance.ToString())
-            ));
+            // 非阻塞获取信号量
+            if (!_gate.Wait(0)) return;
 
-            Activate();
-        }
-
-        // ================================================================
-        // Agent Loop
-        // ================================================================
-
-        private void Activate()
-        {
-            _isProcessing = true;
-            _round = 0;
-            _drained = _pool.DrainPending();
-
-            if (_drained.Count == 0)
-            {
-                _isProcessing = false;
-                return;
-            }
-
-            _logger.Message($"[NPCLife.Agent] Activated with {_drained.Count} events (importance={_pool.TotalImportance})");
-
-            _messages = new List<LlmMessage>
-            {
-                LlmMessage.System(_systemPrompt),
-                LlmMessage.User(BuildUserMessage(_drained))
-            };
-
-            SendChat();
-        }
-
-        private async void SendChat()
-        {
             try
             {
-                // 从注册表获取当前激活的凭证列表（用于 fallback）
-                var credentials = _credentialRegistry.GetActiveCredentials();
-                if (credentials.Count == 0)
+                _currentRun = RunOnceAsync(_disposeCts.Token);
+            }
+            catch
+            {
+                _gate.Release();
+                throw;
+            }
+        }
+
+        // ================================================================
+        // 公共触发入口
+        // ================================================================
+
+        /// <summary>
+        /// 外部主动触发 Agent 运行。若当前非空闲则立即返回。
+        /// </summary>
+        public Task TriggerAsync(CancellationToken ct = default)
+        {
+            if (_state != AgentRunState.Idle) return Task.CompletedTask;
+            if (!_gate.Wait(0)) return Task.CompletedTask;
+
+            var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _disposeCts.Token);
+            try
+            {
+                _currentRun = RunOnceAsync(linked.Token);
+                return _currentRun;
+            }
+            catch
+            {
+                linked.Dispose();
+                _gate.Release();
+                throw;
+            }
+        }
+
+        // ================================================================
+        // Agent Loop — 显式状态机主循环
+        // ================================================================
+
+        private async Task RunOnceAsync(CancellationToken ct)
+        {
+            string runId = $"run-{Interlocked.Increment(ref _runSeq)}";
+            _currentRunId = runId;
+            _round = 0;
+
+            try
+            {
+                // --- DrainingEvents ---
+                _state = AgentRunState.DrainingEvents;
+                ErrorHandler.BeginTrace();
+                EventBus.Publish(FrameworkEvents.AgentActivated, EventArg.WithPayload(
+                    ("runId", runId),
+                    ("pendingCount", _pool.PendingCount.ToString()),
+                    ("totalImportance", _pool.TotalImportance.ToString())
+                ));
+
+                _drained = _pool.DrainPending();
+                if (_drained.Count == 0)
                 {
-                    OnError("No active credentials configured");
+                    _state = AgentRunState.Idle;
                     return;
                 }
 
-                var request = new LlmRequest
+                _logger.Message($"[NPCLife.Agent] Activated with {_drained.Count} events (importance={_pool.TotalImportance}, runId={runId})");
+
+                // --- BuildingRequest ---
+                _state = AgentRunState.BuildingRequest;
+                _messages = new List<LlmMessage>
                 {
-                    Messages = new List<LlmMessage>(_messages),
-                    ToolsJson = McpSkillRegistry.GetActiveToolsJson(_skillIds),
-                    Temperature = _temperature
+                    LlmMessage.System(_systemPrompt),
+                    LlmMessage.User(BuildUserMessage(_drained))
                 };
 
-                // 管道拦截：LLM 请求前
-                var llmCtx = new LlmContext { Request = request };
-                AgentPipeline.RunBeforeLlm(llmCtx);
+                // 获取凭证
+                var credentials = _credentialRegistry.GetActiveCredentials();
+                if (credentials.Count == 0)
+                    throw new InvalidOperationException("No active credentials configured");
 
-                EventBus.Publish(FrameworkEvents.LlmRequestSent, EventArg.WithPayload(
-                    ("round", _round.ToString()),
-                    ("messageCount", _messages.Count.ToString())
-                ));
+                // --- LLM + Tool 循环 ---
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
 
-                try
-                {
-                    var response = await _llm.ChatAsync(llmCtx.Request, credentials);
-                    OnSuccess(response);
+                    // --- CallingLlm ---
+                    _state = AgentRunState.CallingLlm;
+                    var request = BuildLlmRequest();
+
+                    // 管道拦截：LLM 请求前
+                    var llmCtx = new LlmContext { Request = request };
+                    AgentPipeline.RunBeforeLlm(llmCtx);
+
+                    EventBus.Publish(FrameworkEvents.LlmRequestSent, EventArg.WithPayload(
+                        ("runId", runId),
+                        ("round", _round.ToString()),
+                        ("messageCount", _messages.Count.ToString())
+                    ));
+
+                    var response = await _llm.ChatAsync(llmCtx.Request, credentials, ct);
+
+                    if (response == null || !response.IsSuccess)
+                        throw new InvalidOperationException(response?.Error ?? "null response");
+
+                    // 将 LLM 回复加入消息历史
+                    if (!string.IsNullOrEmpty(response.Content))
+                        _messages.Add(LlmMessage.Assistant(response.Content));
+
+                    EventBus.Publish(FrameworkEvents.LlmResponseReceived, EventArg.WithPayload(
+                        ("runId", runId),
+                        ("hasToolCalls", response.HasToolCalls.ToString()),
+                        ("contentLength", (response.Content?.Length ?? 0).ToString()),
+                        ("inputTokens", (response.UsageInputTokens?.ToString() ?? "")),
+                        ("outputTokens", (response.UsageOutputTokens?.ToString() ?? "")),
+                        ("cacheReadTokens", (response.UsageCacheReadTokens?.ToString() ?? "")),
+                        ("model", response.Model ?? "")
+                    ));
+
+                    if (!response.HasToolCalls)
+                        break; // 无工具调用 → 完成
+
+                    _round++;
+                    if (_round >= _maxRounds)
+                    {
+                        _logger.Warning($"[NPCLife.Agent] Reached max rounds ({_maxRounds}). Ending loop.");
+                        break;
+                    }
+
+                    // --- ExecutingTools ---
+                    _state = AgentRunState.ExecutingTools;
+                    var toolCallsForMessage = new List<LlmToolCall>();
+                    var toolResults = new List<(string id, string result)>();
+
+                    foreach (var tc in response.ToolCalls)
+                    {
+                        _logger.Message($"[NPCLife.Agent] Tool call: {tc.Name}({tc.Arguments})");
+
+                        // 管道拦截：工具调用前
+                        var toolCtx = new ToolCallContext { ToolName = tc.Name, Arguments = tc.Arguments };
+                        AgentPipeline.RunBeforeToolCall(toolCtx);
+
+                        EventBus.Publish(FrameworkEvents.ToolInvoking, EventArg.WithPayload(
+                            ("runId", runId),
+                            ("toolName", tc.Name), ("round", _round.ToString())
+                        ));
+
+                        string result;
+                        if (toolCtx.Cancelled)
+                        {
+                            result = "{\"error\":\"cancelled by interceptor\"}";
+                        }
+                        else
+                        {
+                            result = McpSkillRegistry.InvokeTool(_skillIds, tc.Name, tc.Arguments);
+                            toolCtx.Result = result;
+                        }
+
+                        // 管道拦截：工具调用后
+                        AgentPipeline.RunAfterToolCall(toolCtx);
+
+                        EventBus.Publish(FrameworkEvents.ToolInvoked, EventArg.WithPayload(
+                            ("runId", runId),
+                            ("toolName", tc.Name), ("resultLength", (result?.Length ?? 0).ToString())
+                        ));
+
+                        toolCallsForMessage.Add(tc);
+                        toolResults.Add((tc.Id, result));
+
+                        _logger.Message($"[NPCLife.Agent] Tool result ({tc.Name}): {TruncateResult(result)}");
+                    }
+
+                    // --- AppendingToolResults ---
+                    _state = AgentRunState.AppendingToolResults;
+
+                    // 添加含 tool_calls 的 assistant 消息
+                    var assistantMsg = new LlmMessage
+                    {
+                        Role = "assistant",
+                        Content = response.Content ?? "",
+                        ToolCalls = toolCallsForMessage
+                    };
+                    _messages.Add(assistantMsg);
+
+                    // 为每个工具调用添加 tool 结果消息
+                    foreach (var (id, result) in toolResults)
+                    {
+                        _messages.Add(LlmMessage.ToolResult(id, result));
+                    }
+
+                    EventBus.Publish(FrameworkEvents.AgentRoundComplete, EventArg.WithPayload(
+                        ("runId", runId),
+                        ("round", _round.ToString()),
+                        ("toolCallCount", response.ToolCalls.Count.ToString())
+                    ));
                 }
-                catch (Exception e)
-                {
-                    OnError(e.Message);
-                }
+
+                // --- Finishing ---
+                FinishOnce(runId, normalCompletion: true);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                FailAndRequeue(runId, "cancelled");
             }
             catch (Exception ex)
             {
-                OnError($"SendChat fatal: {ex.Message}");
+                FailAndRequeue(runId, ex.Message);
+            }
+            finally
+            {
+                _currentRunId = null;
+                _state = AgentRunState.Idle;
+                _gate.Release();
             }
         }
 
-        private void OnSuccess(LlmResponse response)
+        // ================================================================
+        // 统一成功/失败路径
+        // ================================================================
+
+        private void FinishOnce(string runId, bool normalCompletion)
         {
-            if (response == null || !response.IsSuccess)
-            {
-                OnError(response?.Error ?? "null response");
-                return;
-            }
-
-            // 将 LLM 回复加入消息历史
-            if (!string.IsNullOrEmpty(response.Content))
-                _messages.Add(LlmMessage.Assistant(response.Content));
-
-            EventBus.Publish(FrameworkEvents.LlmResponseReceived, EventArg.WithPayload(
-                ("hasToolCalls", response.HasToolCalls.ToString()),
-                ("contentLength", (response.Content?.Length ?? 0).ToString()),
-                ("inputTokens", (response.UsageInputTokens?.ToString() ?? "")),
-                ("outputTokens", (response.UsageOutputTokens?.ToString() ?? "")),
-                ("cacheReadTokens", (response.UsageCacheReadTokens?.ToString() ?? "")),
-                ("model", response.Model ?? "")
-            ));
-
-            // 工具调用？
-            if (response.HasToolCalls)
-            {
-                _round++;
-
-                if (_round >= _maxRounds)
-                {
-                    _logger.Warning($"[NPCLife.Agent] Reached max rounds ({_maxRounds}). Ending loop.");
-                    Finish(false);
-                    return;
-                }
-
-                var toolCallsForMessage = new List<LlmToolCall>();
-                var toolResults = new List<(string id, string result)>();
-
-                foreach (var tc in response.ToolCalls)
-                {
-                    _logger.Message($"[NPCLife.Agent] Tool call: {tc.Name}({tc.Arguments})");
-
-                    // 管道拦截：工具调用前
-                    var toolCtx = new ToolCallContext { ToolName = tc.Name, Arguments = tc.Arguments };
-                    AgentPipeline.RunBeforeToolCall(toolCtx);
-
-                    EventBus.Publish(FrameworkEvents.ToolInvoking, EventArg.WithPayload(
-                        ("toolName", tc.Name), ("round", _round.ToString())
-                    ));
-
-                    string result;
-                    if (toolCtx.Cancelled)
-                    {
-                        result = "{\"error\":\"cancelled by interceptor\"}";
-                    }
-                    else
-                    {
-                        result = McpSkillRegistry.InvokeTool(_skillIds, tc.Name, tc.Arguments);
-                        toolCtx.Result = result;
-                    }
-
-                    // 管道拦截：工具调用后
-                    AgentPipeline.RunAfterToolCall(toolCtx);
-
-                    EventBus.Publish(FrameworkEvents.ToolInvoked, EventArg.WithPayload(
-                        ("toolName", tc.Name), ("resultLength", (result?.Length ?? 0).ToString())
-                    ));
-
-                    toolCallsForMessage.Add(tc);
-                    toolResults.Add((tc.Id, result));
-
-                    _logger.Message($"[NPCLife.Agent] Tool result ({tc.Name}): {TruncateResult(result)}");
-                }
-
-                // 添加含 tool_calls 的 assistant 消息
-                var assistantMsg = new LlmMessage
-                {
-                    Role = "assistant",
-                    Content = response.Content ?? "",
-                    ToolCalls = toolCallsForMessage
-                };
-                _messages.Add(assistantMsg);
-
-                // 为每个工具调用添加 tool 结果消息
-                foreach (var (id, result) in toolResults)
-                {
-                    _messages.Add(LlmMessage.ToolResult(id, result));
-                }
-
-                EventBus.Publish(FrameworkEvents.AgentRoundComplete, EventArg.WithPayload(
-                    ("round", _round.ToString()),
-                    ("toolCallCount", response.ToolCalls.Count.ToString())
-                ));
-
-                // 继续下一轮
-                SendChat();
-            }
-            else
-            {
-                // 无工具调用：Agent 完成决策
-                _logger.Message("[NPCLife.Agent] Loop finished (stop).");
-                Finish();
-            }
-        }
-
-        private void OnError(string error)
-        {
-            _logger.Warning($"[NPCLife.Agent] LLM error: {error}. Events remain in pool for retry.");
-            ErrorHandler.ReportError("AgentLoop", error, new System.Collections.Generic.Dictionary<string, string>
-            {
-                {"round", _round.ToString()},
-                {"drainedCount", (_drained?.Count ?? 0).ToString()}
-            });
-
-            if (_drained != null)
-            {
-                foreach (var evt in _drained)
-                    _pool.Append(evt);
-            }
-            _drained = null;
-            _messages = null;
-            _isProcessing = false;
-
-            ErrorHandler.EndTrace();
-            EventBus.Publish(FrameworkEvents.AgentLoopFinished, EventArg.WithPayload(
-                ("rounds", _round.ToString()),
-                ("error", error ?? "unknown")
-            ));
-        }
-
-        private void Finish(bool normalCompletion = true)
-        {
+            _state = AgentRunState.Finishing;
             int count = _drained?.Count ?? 0;
             int rounds = _round;
             _drained = null;
             _messages = null;
-            _isProcessing = false;
 
-            _logger.Message($"[NPCLife.Agent] Loop complete. {count} events processed.");
+            _logger.Message($"[NPCLife.Agent] Loop complete. {count} events processed. (runId={runId})");
 
             // 管道拦截：循环结束
             AgentPipeline.RunLoopFinished(new LoopContext
@@ -326,10 +365,53 @@ namespace NPCLife.Agent
 
             ErrorHandler.EndTrace();
             EventBus.Publish(FrameworkEvents.AgentLoopFinished, EventArg.WithPayload(
+                ("runId", runId),
                 ("rounds", rounds.ToString()),
                 ("eventsProcessed", count.ToString()),
                 ("normalCompletion", normalCompletion.ToString())
             ));
+        }
+
+        private void FailAndRequeue(string runId, string error)
+        {
+            _state = AgentRunState.Error;
+            _logger.Warning($"[NPCLife.Agent] LLM error: {error}. Events remain in pool for retry. (runId={runId})");
+            ErrorHandler.ReportError("AgentLoop", error, new Dictionary<string, string>
+            {
+                {"runId", runId},
+                {"round", _round.ToString()},
+                {"drainedCount", (_drained?.Count ?? 0).ToString()}
+            });
+
+            // 将已 drain 的事件回灌
+            if (_drained != null)
+            {
+                foreach (var evt in _drained)
+                    _pool.Append(evt);
+            }
+            _drained = null;
+            _messages = null;
+
+            ErrorHandler.EndTrace();
+            EventBus.Publish(FrameworkEvents.AgentLoopFinished, EventArg.WithPayload(
+                ("runId", runId),
+                ("rounds", _round.ToString()),
+                ("error", error ?? "unknown")
+            ));
+        }
+
+        // ================================================================
+        // 请求构建
+        // ================================================================
+
+        private LlmRequest BuildLlmRequest()
+        {
+            return new LlmRequest
+            {
+                Messages = new List<LlmMessage>(_messages),
+                ToolsJson = McpSkillRegistry.GetActiveToolsJson(_skillIds),
+                Temperature = _temperature
+            };
         }
 
         // ================================================================
@@ -406,23 +488,42 @@ namespace NPCLife.Agent
             return result.Length > 200 ? result.Substring(0, 200) + "..." : result;
         }
 
-        /// <summary>获取当前处理状态（调试用）。</summary>
-        public bool IsProcessing => _isProcessing;
+        /// <summary>获取当前运行状态。</summary>
+        public AgentRunState State => _state;
+
+        /// <summary>获取当前处理状态（调试用，兼容旧接口）。</summary>
+        public bool IsProcessing => _state != AgentRunState.Idle;
 
         /// <summary>获取当前 Agent 轮数（调试用）。</summary>
         public int CurrentRound => _round;
+
+        /// <summary>获取当前运行 ID（调试用）。</summary>
+        public string CurrentRunId => _currentRunId;
 
         // ================================================================
         // IDisposable
         // ================================================================
 
-        /// <summary>取消事件订阅、清空状态。</summary>
+        /// <summary>取消事件订阅、cancel 正在运行的任务并等待安全结束。</summary>
         public void Dispose()
         {
             _unsubscribe?.Invoke();
+
+            // 发送取消信号
+            try { _disposeCts.Cancel(); } catch { }
+
+            // 同步等待当前运行结束（有超时保护）
+            var run = _currentRun;
+            if (run != null)
+            {
+                try { run.Wait(TimeSpan.FromSeconds(5)); } catch { }
+            }
+
+            _disposeCts.Dispose();
+            _gate.Dispose();
             _drained = null;
             _messages = null;
-            _isProcessing = false;
+            _state = AgentRunState.Idle;
         }
     }
 }
