@@ -10,14 +10,14 @@ namespace NPCLife.Infrastructure.Mcp
 {
     /// <summary>
     /// 内置知识库的 MCP 工具集。提供词条查询、学习、列举、删除和元数据统计能力。
-    /// 通过 KnowledgeService 聚合内部缓存与外部源，一次性返回全部来源的释义。
+    /// 通过 IKnowledgeService 接口消费知识库，不依赖具体实现。
     /// </summary>
     public class KnowledgeMcpProvider : IMcpHookProvider
     {
-        private readonly Func<KnowledgeService> _getKnowledgeService;
+        private readonly Func<IKnowledgeService> _getKnowledgeService;
         private readonly ILogger _logger;
 
-        public KnowledgeMcpProvider(Func<KnowledgeService> getKnowledgeService, ILogger logger)
+        public KnowledgeMcpProvider(Func<IKnowledgeService> getKnowledgeService, ILogger logger)
         {
             _getKnowledgeService = getKnowledgeService ?? throw new ArgumentNullException(nameof(getKnowledgeService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));

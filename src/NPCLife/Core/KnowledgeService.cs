@@ -4,11 +4,13 @@ using System.Collections.Generic;
 namespace NPCLife.Core
 {
     /// <summary>
-    /// 知识服务聚合器。组合内部缓存（IKnowledgeBase）与外部只读源（IExternalKnowledgeSource），
+    /// 知识服务默认实现。聚合 IKnowledgeBase（可写）与 IExternalKnowledgeSource[]（只读），
     /// 并行查询所有源，一次性返回同名词条的全部释义。
-    /// Store / Delete 仅操作内部缓存，外部源不受影响。
+    /// Store / Delete / List* 代理到 IKnowledgeBase。
+    ///
+    /// 若需完全自定义知识库架构，直接实现 IKnowledgeService 即可，无需使用此类。
     /// </summary>
-    public class KnowledgeService
+    public class KnowledgeService : IKnowledgeService
     {
         private readonly IKnowledgeBase _cache;
         private readonly IReadOnlyList<IExternalKnowledgeSource> _externals;

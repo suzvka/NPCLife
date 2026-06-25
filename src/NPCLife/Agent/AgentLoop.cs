@@ -52,7 +52,7 @@ namespace NPCLife.Agent
         private readonly ICardSerializer _serializer;
         private readonly Action _unsubscribe; // 取消事件订阅的委托
         private readonly Func<string> _contextProvider;
-        private readonly KnowledgeService _knowledgeService;
+        private readonly IKnowledgeService _knowledgeService;
         private readonly float _temperature;
         private readonly string _modelAlias; // 关联的模型代号
 
@@ -80,7 +80,7 @@ namespace NPCLife.Agent
         /// <param name="logger">日志接口。</param>
         /// <param name="serializer">Card 序列化器（可选，默认使用 CardSerializer.Default）。</param>
         /// <param name="contextProvider">动态上下文提供者（可选）。每次激活时调用，返回值追加到用户消息末尾。</param>
-        /// <param name="knowledgeService">知识服务（可选）。Agent 激活时收集事件关键词去重后批量查询全部来源，命中结果注入提示词。</param>
+        /// <param name="knowledgeService">知识服务（可选）。Agent 激活时收集事件关键词去重后批量查询，命中结果注入提示词。第三方可实现 IKnowledgeService 自定义架构。</param>
         /// <param name="temperature">LLM 采样温度（0~2），默认 0.7。</param>
         /// <param name="modelAlias">关联的模型代号（如 "primary"），用于从 Registry 解析凭证。默认 "primary"。</param>
         public AgentLoop(
@@ -93,7 +93,7 @@ namespace NPCLife.Agent
             ILogger logger,
             ICardSerializer serializer = null,
             Func<string> contextProvider = null,
-            KnowledgeService knowledgeService = null,
+            IKnowledgeService knowledgeService = null,
             float temperature = 0.7f,
             string modelAlias = "primary")
         {
