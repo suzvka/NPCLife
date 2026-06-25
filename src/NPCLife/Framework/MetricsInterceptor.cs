@@ -7,9 +7,7 @@ namespace NPCLife.Framework
     /// - MCP 工具调用频率和成功率
     /// - Agent 循环统计（轮数、事件数、角色）
     ///
-    /// Token 消耗通过 EventBus 订阅 llm.response_received 独立采集，
-    /// 知识库命中率通过 KnowledgeBaseChain.OnLookupResult 回调采集。
-    ///
+    /// Token 消耗通过 EventBus 订阅 llm.response_received 独立采集。
     /// 框架侧纯逻辑组件，零外部依赖。
     /// </summary>
     public class MetricsInterceptor : AgentInterceptorBase

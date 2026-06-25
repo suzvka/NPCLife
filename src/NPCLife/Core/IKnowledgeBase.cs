@@ -4,8 +4,7 @@ namespace NPCLife.Core
 {
     /// <summary>
     /// 知识库抽象接口。提供词条的增删查改能力。
-    /// 实现者可以是本地缓存（L1）、GameDef 查询（L2）、外部 LLM/Wiki（L3）等。
-    /// 链式组合由 KnowledgeBaseChain 实现。
+    /// 框架内部唯一可写实现为 BuiltInKnowledgeBase，外部只读源通过 IExternalKnowledgeSource 接入。
     /// </summary>
     public interface IKnowledgeBase
     {
@@ -49,9 +48,5 @@ namespace NPCLife.Core
         /// </summary>
         IReadOnlyList<KnowledgeEntry> ListAll();
 
-        /// <summary>
-        /// 返回当前知识库中的词条总数。
-        /// </summary>
-        int Count { get; }
     }
 }

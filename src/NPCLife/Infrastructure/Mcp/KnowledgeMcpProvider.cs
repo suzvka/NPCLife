@@ -10,17 +10,16 @@ namespace NPCLife.Infrastructure.Mcp
 {
     /// <summary>
     /// 内置知识库的 MCP 工具集。提供词条查询、学习、列举、删除和元数据统计能力。
-    /// 通过 IMcpHookProvider 接口注入依赖（KnowledgeBase + ILogger），
-    /// 通过接口注入依赖，零静态耦合。
+    /// 通过 KnowledgeService 聚合内部缓存与外部源，一次性返回全部来源的释义。
     /// </summary>
     public class KnowledgeMcpProvider : IMcpHookProvider
     {
-        private readonly Func<IKnowledgeBase> _getKnowledgeBase;
+        private readonly Func<KnowledgeService> _getKnowledgeService;
         private readonly ILogger _logger;
 
-        public KnowledgeMcpProvider(Func<IKnowledgeBase> getKnowledgeBase, ILogger logger)
+        public KnowledgeMcpProvider(Func<KnowledgeService> getKnowledgeService, ILogger logger)
         {
-            _getKnowledgeBase = getKnowledgeBase ?? throw new ArgumentNullException(nameof(getKnowledgeBase));
+            _getKnowledgeService = getKnowledgeService ?? throw new ArgumentNullException(nameof(getKnowledgeService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -45,10 +44,10 @@ namespace NPCLife.Infrastructure.Mcp
         // ================================================================
 
         /// <summary>
-        /// 分层查询词条释义。先查本地缓存，未命中可扩展至 GameDef / 外部源。
+        /// 查询词条释义。并行查询内部缓存和所有外部源，返回全部命中的释义列表。
         /// </summary>
         [McpTool(Name = "lookup_term",
-                 Description = "查询词条释义。先查内置知识库(L1)，未命中时可扩展至 GameDef(L2)或外部源(L3)。")]
+                 Description = "查询词条释义。并行查询所有知识源，返回全部命中的释义列表，每条标注来源。")]
         public string LookupTerm(
             [McpParam(Description = "要查询的词条名")] string term)
         {
@@ -57,14 +56,14 @@ namespace NPCLife.Infrastructure.Mcp
                 if (string.IsNullOrEmpty(term))
                     return "{\"hit\":false,\"error\":\"term is required\"}";
 
-                var kb = _getKnowledgeBase();
-                if (kb == null)
-                    return "{\"hit\":false,\"error\":\"KnowledgeBase unavailable\"}";
+                var svc = _getKnowledgeService();
+                if (svc == null)
+                    return "{\"hit\":false,\"error\":\"KnowledgeService unavailable\"}";
 
-                if (kb.TryLookup(term, out var entry))
-                {
-                    return SerializeLookupHit(entry);
-                }
+                var hits = svc.Lookup(term);
+
+                if (hits.Count > 0)
+                    return SerializeLookupHits(term, hits);
 
                 return MakeMiss(term);
             }
@@ -76,15 +75,15 @@ namespace NPCLife.Infrastructure.Mcp
         }
 
         /// <summary>
-        /// 主动学习一个词条的释义并存储到知识库。
+        /// 主动学习一个词条的释义并存储到内部知识库。直接覆盖已有词条。
         /// </summary>
         [McpTool(Name = "learn_term",
-                 Description = "将一个词条及其释义存储到内置知识库。若已存在则智能合并（保留更高信心度）。")]
+                 Description = "将一个词条及其释义存储到内部知识库。若已存在则直接覆盖。")]
         public string LearnTerm(
             [McpParam(Description = "词条名")] string term,
             [McpParam(Description = "释义文本")] string definition,
             [McpParam(Description = "信心度 0.0~1.0，默认 0.8")] float confidence = 0.8f,
-            [McpParam(Description = "来源：LLM / GameDef / AgentDeduction / Wiki，默认 LLM",
+            [McpParam(Description = "来源名，如 LLM / AgentDeduction / Wiki，默认 LLM",
                       Required = McpRequired.False)] string source = "LLM",
             [McpParam(Description = "关联语义标签，逗号分隔，如 Combat,Faction,Lore",
                       Required = McpRequired.False)] string tags = null)
@@ -94,28 +93,25 @@ namespace NPCLife.Infrastructure.Mcp
                 if (string.IsNullOrEmpty(term))
                     return "{\"hit\":false,\"error\":\"term is required\"}";
 
-                var kb = _getKnowledgeBase();
-                if (kb == null)
-                    return "{\"hit\":false,\"error\":\"KnowledgeBase unavailable\"}";
-
-                KnowledgeSource src;
-                if (!Enum.TryParse<KnowledgeSource>(source, true, out src))
-                    src = KnowledgeSource.LLM;
+                var svc = _getKnowledgeService();
+                if (svc == null)
+                    return "{\"hit\":false,\"error\":\"KnowledgeService unavailable\"}";
 
                 var entry = new KnowledgeEntry
                 {
                     Term = term.Trim(),
                     Definition = definition ?? "",
-                    Source = src,
+                    Source = source ?? "LLM",
                     Confidence = Math.Max(0f, Math.Min(1f, confidence)),
                     ContextTags = ParseTagList(tags)
                 };
 
-                kb.Store(entry);
+                svc.Store(entry);
 
                 // 回读确认
-                if (kb.TryLookup(term, out var stored))
-                    return SerializeLookupHit(stored);
+                var hits = svc.Lookup(term);
+                if (hits.Count > 0)
+                    return SerializeLookupHits(term, hits);
 
                 return "{\"hit\":false,\"error\":\"store failed\"}";
             }
@@ -130,7 +126,7 @@ namespace NPCLife.Infrastructure.Mcp
         /// 列出已知词条，支持前缀和标签过滤。
         /// </summary>
         [McpTool(Name = "list_known_terms",
-                 Description = "列出内置知识库中的已知词条摘要。支持前缀过滤和语义标签过滤。")]
+                 Description = "列出内部知识库中的已知词条摘要。支持前缀过滤和语义标签过滤。")]
         public string ListKnownTerms(
             [McpParam(Description = "前缀过滤，如 '心灵'。留空=全部",
                       Required = McpRequired.False)] string prefix = null,
@@ -140,23 +136,23 @@ namespace NPCLife.Infrastructure.Mcp
         {
             try
             {
-                var kb = _getKnowledgeBase();
-                if (kb == null) return "[]";
+                var svc = _getKnowledgeService();
+                if (svc == null) return "[]";
 
                 IReadOnlyList<KnowledgeEntry> entries;
 
                 if (!string.IsNullOrEmpty(tags))
                 {
                     var tagList = ParseTagList(tags);
-                    entries = kb.ListByTags(tagList);
+                    entries = svc.ListByTags(tagList);
                 }
                 else if (!string.IsNullOrEmpty(prefix))
                 {
-                    entries = kb.ListByPrefix(prefix);
+                    entries = svc.ListByPrefix(prefix);
                 }
                 else
                 {
-                    entries = kb.ListAll();
+                    entries = svc.ListAll();
                 }
 
                 if (entries.Count > limit)
@@ -175,7 +171,7 @@ namespace NPCLife.Infrastructure.Mcp
         /// 删除指定词条。
         /// </summary>
         [McpTool(Name = "forget_term",
-                 Description = "从内置知识库中删除指定词条。不存在时静默返回。")]
+                 Description = "从内部知识库中删除指定词条。不存在时静默返回。")]
         public string ForgetTerm(
             [McpParam(Description = "要删除的词条名")] string term)
         {
@@ -184,11 +180,11 @@ namespace NPCLife.Infrastructure.Mcp
                 if (string.IsNullOrEmpty(term))
                     return "{\"hit\":false,\"error\":\"term is required\"}";
 
-                var kb = _getKnowledgeBase();
-                if (kb == null)
-                    return "{\"hit\":false,\"error\":\"KnowledgeBase unavailable\"}";
+                var svc = _getKnowledgeService();
+                if (svc == null)
+                    return "{\"hit\":false,\"error\":\"KnowledgeService unavailable\"}";
 
-                kb.Delete(term);
+                svc.Delete(term);
 
                 var w = new JsonWriter(64);
                 w.Prop("hit", true);
@@ -203,10 +199,10 @@ namespace NPCLife.Infrastructure.Mcp
         }
 
         /// <summary>
-        /// 获取词条的元数据统计（信心度、访问次数、来源等）。
+        /// 获取词条的元数据统计（信心度、来源等）。
         /// </summary>
         [McpTool(Name = "get_term_stats",
-                 Description = "获取指定词条的元数据：信心度、来源、访问次数、创建/上次访问时间。")]
+                 Description = "获取指定词条的元数据：信心度、来源。")]
         public string GetTermStats(
             [McpParam(Description = "词条名")] string term)
         {
@@ -215,14 +211,13 @@ namespace NPCLife.Infrastructure.Mcp
                 if (string.IsNullOrEmpty(term))
                     return "{\"hit\":false,\"error\":\"term is required\"}";
 
-                var kb = _getKnowledgeBase();
-                if (kb == null)
-                    return "{\"hit\":false,\"error\":\"KnowledgeBase unavailable\"}";
+                var svc = _getKnowledgeService();
+                if (svc == null)
+                    return "{\"hit\":false,\"error\":\"KnowledgeService unavailable\"}";
 
-                if (kb.TryLookup(term, out var entry))
-                {
-                    return SerializeTermStats(entry);
-                }
+                var hits = svc.Lookup(term);
+                if (hits.Count > 0)
+                    return SerializeTermStatsList(hits);
 
                 return MakeMiss(term);
             }
@@ -237,18 +232,40 @@ namespace NPCLife.Infrastructure.Mcp
         // 序列化
         // ================================================================
 
-        private static string SerializeLookupHit(KnowledgeEntry entry)
+        private static string SerializeLookupHits(string term, IReadOnlyList<KnowledgeEntry> entries)
         {
-            var w = new JsonWriter(1024);
-            w.Prop("hit", true);
+            if (entries == null || entries.Count == 0) return MakeMiss(term);
+
+            if (entries.Count == 1)
+            {
+                // 单条：保留简化的旧格式兼容性
+                var w = new JsonWriter(1024);
+                w.Prop("hit", true);
+                WProps(w, entries[0]);
+                return w.Close();
+            }
+
+            // 多条：返回数组
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < entries.Count; i++)
+            {
+                if (i > 0) sb.Append(',');
+                var w = new JsonWriter(512);
+                WProps(w, entries[i]);
+                sb.Append(w.Close());
+            }
+            sb.Append(']');
+            return sb.ToString();
+        }
+
+        private static void WProps(JsonWriter w, KnowledgeEntry entry)
+        {
             w.Prop("term", entry.Term ?? "");
             w.Prop("definition", entry.Definition ?? "");
-            w.Prop("source", entry.Source.ToString());
+            w.Prop("source", entry.Source ?? "");
             w.Prop("confidence", entry.Confidence, "F2");
-            w.Prop("accessCount", entry.AccessCount);
             if (entry.ContextTags != null && entry.ContextTags.Count > 0)
                 w.Array("contextTags", entry.ContextTags);
-            return w.Close();
         }
 
         private static string SerializeTermSummaryList(IReadOnlyList<KnowledgeEntry> entries)
@@ -270,12 +287,28 @@ namespace NPCLife.Infrastructure.Mcp
             var w = new JsonWriter(256);
             w.Prop("term", entry.Term ?? "");
             w.Prop("definitionPreview", Truncate(entry.Definition ?? "", 120));
-            w.Prop("source", entry.Source.ToString());
+            w.Prop("source", entry.Source ?? "");
             w.Prop("confidence", entry.Confidence, "F2");
-            w.Prop("accessCount", entry.AccessCount);
             if (entry.ContextTags != null && entry.ContextTags.Count > 0)
                 w.Array("contextTags", entry.ContextTags);
             return w.Close();
+        }
+
+        private static string SerializeTermStatsList(IReadOnlyList<KnowledgeEntry> entries)
+        {
+            if (entries == null || entries.Count == 0) return "[]";
+
+            if (entries.Count == 1)
+                return SerializeTermStats(entries[0]);
+
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < entries.Count; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append(SerializeTermStats(entries[i]));
+            }
+            sb.Append(']');
+            return sb.ToString();
         }
 
         private static string SerializeTermStats(KnowledgeEntry entry)
@@ -283,11 +316,8 @@ namespace NPCLife.Infrastructure.Mcp
             var w = new JsonWriter(256);
             w.Prop("hit", true);
             w.Prop("term", entry.Term ?? "");
-            w.Prop("source", entry.Source.ToString());
+            w.Prop("source", entry.Source ?? "");
             w.Prop("confidence", entry.Confidence, "F3");
-            w.Prop("createdSeq", entry.CreatedSeq);
-            w.Prop("lastAccessedSeq", entry.LastAccessedSeq);
-            w.Prop("accessCount", entry.AccessCount);
             if (entry.ContextTags != null && entry.ContextTags.Count > 0)
                 w.Array("contextTags", entry.ContextTags);
             return w.Close();

@@ -52,7 +52,7 @@ namespace NPCLife.Agent
         private readonly ICardSerializer _serializer;
         private readonly Action _unsubscribe; // 取消事件订阅的委托
         private readonly Func<string> _contextProvider;
-        private readonly IKnowledgeBase _knowledgeBase;
+        private readonly KnowledgeService _knowledgeService;
         private readonly float _temperature;
         private readonly string _modelAlias; // 关联的模型代号
 
@@ -80,7 +80,7 @@ namespace NPCLife.Agent
         /// <param name="logger">日志接口。</param>
         /// <param name="serializer">Card 序列化器（可选，默认使用 CardSerializer.Default）。</param>
         /// <param name="contextProvider">动态上下文提供者（可选）。每次激活时调用，返回值追加到用户消息末尾。</param>
-        /// <param name="knowledgeBase">知识库（可选）。Agent 激活时收集事件关键词去重后批量查询，命中结果注入提示词。</param>
+        /// <param name="knowledgeService">知识服务（可选）。Agent 激活时收集事件关键词去重后批量查询全部来源，命中结果注入提示词。</param>
         /// <param name="temperature">LLM 采样温度（0~2），默认 0.7。</param>
         /// <param name="modelAlias">关联的模型代号（如 "primary"），用于从 Registry 解析凭证。默认 "primary"。</param>
         public AgentLoop(
@@ -93,7 +93,7 @@ namespace NPCLife.Agent
             ILogger logger,
             ICardSerializer serializer = null,
             Func<string> contextProvider = null,
-            IKnowledgeBase knowledgeBase = null,
+            KnowledgeService knowledgeService = null,
             float temperature = 0.7f,
             string modelAlias = "primary")
         {
@@ -106,7 +106,7 @@ namespace NPCLife.Agent
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _serializer = serializer ?? CardSerializer.Default;
             _contextProvider = contextProvider;
-            _knowledgeBase = knowledgeBase;
+            _knowledgeService = knowledgeService;
             _temperature = temperature;
             _modelAlias = modelAlias ?? "primary";
 
@@ -459,8 +459,8 @@ namespace NPCLife.Agent
             sb.AppendLine();
             sb.AppendLine(_serializer.SerializeEventList(events));
 
-            // 收集所有事件的关键词，去重后批量查询知识库
-            if (_knowledgeBase != null)
+            // 收集所有事件的关键词，去重后批量查询知识服务
+            if (_knowledgeService != null)
             {
                 var allKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var evt in events)
@@ -480,8 +480,9 @@ namespace NPCLife.Agent
                     var hits = new List<KnowledgeEntry>();
                     foreach (var kw in allKeywords)
                     {
-                        if (_knowledgeBase.TryLookup(kw, out var entry))
-                            hits.Add(entry);
+                        var results = _knowledgeService.Lookup(kw);
+                        if (results != null && results.Count > 0)
+                            hits.AddRange(results);
                     }
 
                     if (hits.Count > 0)
@@ -493,7 +494,9 @@ namespace NPCLife.Agent
                         {
                             sb.Append("- **");
                             sb.Append(entry.Term ?? "");
-                            sb.Append("**: ");
+                            sb.Append("** [");
+                            sb.Append(entry.Source ?? "unknown");
+                            sb.Append("]: ");
                             sb.AppendLine(entry.Definition ?? "");
                         }
                     }
