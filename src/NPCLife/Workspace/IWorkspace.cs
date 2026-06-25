@@ -29,6 +29,12 @@ namespace NPCLife.Workspace
         /// <summary>编剧给导演的留言。由 FinishRound 写入。</summary>
         string DirectorMessage { get; }
 
+        /// <summary>模型引用 JSON 字符串。数组顺序即调用优先级。</summary>
+        string ModelRefs { get; }
+
+        /// <summary>当前选中模型 JSON（与 ModelRefs 条目同格式）。</summary>
+        string CurrentModel { get; }
+
         // --- 内部组件 ---
 
         /// <summary>工作空间内部事件池。AgentLoop 订阅 OnThresholdReached 被动激活。</summary>

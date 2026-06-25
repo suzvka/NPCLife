@@ -497,6 +497,10 @@ namespace NPCLife.Workspace
                 w.Prop("outcome", ws.Outcome);
             if (!string.IsNullOrEmpty(ws.DirectorMessage))
                 w.Prop("directorMessage", ws.DirectorMessage);
+            if (!string.IsNullOrEmpty(ws.ModelRefs))
+                w.Prop("modelRefs", ws.ModelRefs);
+            if (!string.IsNullOrEmpty(ws.CurrentModel))
+                w.Prop("currentModel", ws.CurrentModel);
             return w.Close();
         }
 
@@ -540,7 +544,9 @@ namespace NPCLife.Workspace
                 PendingEventIds = DeserializeStringList(data.TryGetValue("pendingEventIds", out v) ? v : null),
                 PendingImportance = data.TryGetValue("pendingImportance", out v) && float.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var imp) ? imp : 0,
                 Outcome = data.TryGetValue("outcome", out v) ? (string.IsNullOrEmpty(v) ? null : v) : null,
-                DirectorMessage = data.TryGetValue("directorMessage", out v) ? (string.IsNullOrEmpty(v) ? null : v) : null
+                DirectorMessage = data.TryGetValue("directorMessage", out v) ? (string.IsNullOrEmpty(v) ? null : v) : null,
+                ModelRefs = data.TryGetValue("modelRefs", out v) ? (string.IsNullOrEmpty(v) ? null : v) : null,
+                CurrentModel = data.TryGetValue("currentModel", out v) ? (string.IsNullOrEmpty(v) ? null : v) : null
             };
 
             return ws;

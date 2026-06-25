@@ -44,7 +44,7 @@ namespace NPCLife.Agent
     {
         private readonly IEventLog _pool;
         private readonly ILlmService _llm;
-        private readonly ICredentialRegistry _credentialRegistry;
+        private readonly ICredentialStore _credentialStore;
         private readonly ILogger _logger;
         private readonly string _systemPrompt;
         private readonly string[] _skillIds;
@@ -54,7 +54,8 @@ namespace NPCLife.Agent
         private readonly Func<string> _contextProvider;
         private readonly IKnowledgeService _knowledgeService;
         private readonly float _temperature;
-        private readonly string _modelAlias; // 关联的模型代号
+        private readonly List<(string Cred, string Model)> _modelRefs;
+        private readonly string _currentModelJson;
 
         // 状态机字段
         private volatile AgentRunState _state = AgentRunState.Idle;
@@ -73,7 +74,7 @@ namespace NPCLife.Agent
         /// </summary>
         /// <param name="pool">事件池。Agent 从该池 drain 事件。</param>
         /// <param name="llm">LLM 异步对话服务（无状态）。</param>
-        /// <param name="credentialRegistry">凭证注册表。提供当前可用的 API 凭证列表。</param>
+        /// <param name="credentialStore">凭证存储。提供当前可用的 API 凭证列表。</param>
         /// <param name="systemPrompt">系统提示词。</param>
         /// <param name="skillIds">激活的 Skill ID 列表（MCP 工具集）。</param>
         /// <param name="maxRounds">最大工具调用轮数（防死循环）。</param>
@@ -86,7 +87,7 @@ namespace NPCLife.Agent
         public AgentLoop(
             IEventLog pool,
             ILlmService llm,
-            ICredentialRegistry credentialRegistry,
+            ICredentialStore credentialStore,
             string systemPrompt,
             string[] skillIds,
             int maxRounds,
@@ -95,11 +96,12 @@ namespace NPCLife.Agent
             Func<string> contextProvider = null,
             IKnowledgeService knowledgeService = null,
             float temperature = 0.7f,
-            string modelAlias = "primary")
+            string modelRefsJson = null,
+            string currentModel = null)
         {
             _pool = pool ?? throw new ArgumentNullException(nameof(pool));
             _llm = llm ?? throw new ArgumentNullException(nameof(llm));
-            _credentialRegistry = credentialRegistry ?? throw new ArgumentNullException(nameof(credentialRegistry));
+            _credentialStore = credentialStore ?? throw new ArgumentNullException(nameof(credentialStore));
             _systemPrompt = systemPrompt ?? "";
             _skillIds = skillIds ?? Array.Empty<string>();
             _maxRounds = maxRounds;
@@ -108,7 +110,8 @@ namespace NPCLife.Agent
             _contextProvider = contextProvider;
             _knowledgeService = knowledgeService;
             _temperature = temperature;
-            _modelAlias = modelAlias ?? "primary";
+            _modelRefs = ParseModelRefs(modelRefsJson);
+            _currentModelJson = currentModel;
 
             // 订阅池子事件——唯一激活路径
             _pool.OnThresholdReached += OnPoolChanged;
@@ -202,8 +205,8 @@ namespace NPCLife.Agent
                     LlmMessage.User(BuildUserMessage(_drained))
                 };
 
-                // 获取凭证
-                var credentials = _credentialRegistry.GetActiveCredentials();
+                // 解析凭证：优先使用模型引用列表，回退到全局激活凭证
+                var credentials = ResolveCredentials();
                 if (credentials.Count == 0)
                     throw new InvalidOperationException("No active credentials configured");
 
@@ -554,6 +557,102 @@ namespace NPCLife.Agent
         // ================================================================
         // IDisposable
         // ================================================================
+
+        // ================================================================
+        // 凭证解析
+        // ================================================================
+
+        /// <summary>
+        /// 解析凭证列表。优先使用模型引用列表，回退到全局激活凭证。
+        /// 当前选中模型会被捧到列表首位。
+        /// </summary>
+        private IReadOnlyList<LlmCredential> ResolveCredentials()
+        {
+            if (_modelRefs != null && _modelRefs.Count > 0)
+            {
+                // 解析当前模型（名称匹配）
+                var current = ParseSingleRef(_currentModelJson);
+
+                var result = new List<LlmCredential>();
+                LlmCredential currentCred = null;
+
+                foreach (var (cred, model) in _modelRefs)
+                {
+                    var resolved = _credentialStore.Resolve(cred, model);
+                    if (resolved == null) continue;
+
+                    // 检查是否为当前选中模型
+                    if (current.HasValue
+                        && string.Equals(cred, current.Value.Cred, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(model, current.Value.Model, StringComparison.OrdinalIgnoreCase))
+                    {
+                        currentCred = resolved;
+                    }
+                    else
+                    {
+                        result.Add(resolved);
+                    }
+                }
+
+                // 当前模型捧到首位
+                if (currentCred != null)
+                    result.Insert(0, currentCred);
+
+                if (result.Count > 0)
+                    return result;
+            }
+
+            // 回退：无模型引用或全部解析失败时，使用全局激活凭证
+            return _credentialStore.GetActiveCredentials();
+        }
+
+        /// <summary>
+        /// 解析模型引用 JSON 字符串为 (凭证名, 模型名) 列表。
+        /// 格式: [{"cred":"primary","model":"gpt-4o"},...]
+        /// </summary>
+        private static List<(string Cred, string Model)> ParseModelRefs(string json)
+        {
+            if (string.IsNullOrEmpty(json)) return null;
+
+            try
+            {
+                var objects = JsonParser.ParseObjectArray(json);
+                if (objects == null || objects.Count == 0) return null;
+
+                var result = new List<(string, string)>();
+                foreach (var obj in objects)
+                {
+                    var cred = obj.TryGetValue("cred", out var c) ? c : null;
+                    var model = obj.TryGetValue("model", out var m) ? m : null;
+                    if (!string.IsNullOrEmpty(cred) && !string.IsNullOrEmpty(model))
+                        result.Add((cred, model));
+                }
+                return result.Count > 0 ? result : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 解析单个模型引用 JSON 字符串。
+        /// 格式: {"cred":"primary","model":"gpt-4o"}
+        /// </summary>
+        private static (string Cred, string Model)? ParseSingleRef(string json)
+        {
+            if (string.IsNullOrEmpty(json)) return null;
+            try
+            {
+                var dict = JsonParser.ParseDict(json);
+                var cred = dict.TryGetValue("cred", out var c) ? c : null;
+                var model = dict.TryGetValue("model", out var m) ? m : null;
+                if (!string.IsNullOrEmpty(cred) && !string.IsNullOrEmpty(model))
+                    return (cred, model);
+            }
+            catch { }
+            return null;
+        }
 
         /// <summary>取消事件订阅、cancel 正在运行的任务并等待安全结束。</summary>
         public void Dispose()
