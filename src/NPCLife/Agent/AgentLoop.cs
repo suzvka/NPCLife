@@ -460,6 +460,9 @@ namespace NPCLife.Agent
             sb.AppendLine(_serializer.SerializeEventList(events));
 
             // 收集所有事件的关键词，去重后批量查询知识服务
+            bool hasKnowledgeSkill = _skillIds != null &&
+                Array.IndexOf(_skillIds, "knowledge_management") >= 0;
+
             if (_knowledgeService != null)
             {
                 var allKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -478,11 +481,31 @@ namespace NPCLife.Agent
                 if (allKeywords.Count > 0)
                 {
                     var hits = new List<KnowledgeEntry>();
+                    var missed = new List<string>();
                     foreach (var kw in allKeywords)
                     {
                         var results = _knowledgeService.Lookup(kw);
                         if (results != null && results.Count > 0)
                             hits.AddRange(results);
+                        else
+                            missed.Add(kw);
+                    }
+
+                    // 先报告缺失词条，引导 LLM 在叙事前补全
+                    if (missed.Count > 0 && hasKnowledgeSkill)
+                    {
+                        sb.AppendLine();
+                        sb.AppendLine("## 缺失知识条目");
+                        sb.AppendLine();
+                        sb.AppendLine("以下关键词在当前知识库中没有记录。在开始叙事工作之前，请先使用 learn_term 逐一为它们创建知识条目。");
+                        sb.AppendLine("你可以先用 lookup_term 查询相似词条、用 character_query / event_query 了解关联背景来辅助推断释义。");
+                        sb.AppendLine();
+                        foreach (var kw in missed)
+                        {
+                            sb.Append("- **");
+                            sb.Append(kw);
+                            sb.AppendLine("**");
+                        }
                     }
 
                     if (hits.Count > 0)
