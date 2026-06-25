@@ -147,5 +147,15 @@ namespace NPCLife.Workspace
         /// <summary>编剧给导演的留言。每轮 finish_round 时写入，导演查看所有活跃工作空间时可见。
         /// 内容：本轮剧情发展简述、是否可继续、期望接收的事件类型等。</summary>
         public string DirectorMessage;
+
+        /// <summary>模型引用列表的 JSON 字符串。
+        /// 格式: [{"cred":"primary","model":"gpt-4o"},...]
+        /// 数组顺序即调用优先级。空/null 表示使用全局 fallback。</summary>
+        public string ModelRefs;
+
+        /// <summary>当前选中模型。JSON 格式与 ModelRefs 条目一致：
+        /// {"cred":"primary","model":"gpt-4o"}。
+        /// 通过名称匹配而非整数索引，避免列表变化时失对齐。</summary>
+        public string CurrentModel;
     }
 }

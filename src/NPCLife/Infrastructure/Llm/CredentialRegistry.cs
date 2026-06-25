@@ -4,46 +4,45 @@ using NPCLife.Framework.Llm;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace NPCLife.Infrastructure.Llm
 {
     /// <summary>
-    /// 凭证注册表实现。管理"模型代号 → API 凭证三元组"映射。
+    /// 凭证管理器实现。管理"凭证名 → API 凭证"映射。
+    /// 实现 ICredentialManager（隐式实现 ICredentialStore）。
     /// 
-    /// 通过宿主提供的 IStorage 接口持久化全局配置（不绑定存档）。
+    /// 通过宿主提供的 persistAction 委托持久化全局配置（不绑定存档）。
     /// 
-    /// 运行时 Agent 通过 TryGetCredential / GetActiveCredentials 获取凭证，
-    /// UI 通过 SetAlias / RemoveAlias / SetActiveAliases 管理配置。
+    /// 运行时 Agent 通过 GetActiveCredentials 获取凭证，
+    /// UI 通过 Create / Update / Delete / SetModel 管理配置。
     /// </summary>
-    public class CredentialRegistry : ICredentialRegistry
+    public class CredentialRegistry : ICredentialManager
     {
         // ---- 内部状态 ----
 
         private readonly object _lock = new object();
-        private readonly Dictionary<string, LlmCredential> _aliases
+        private readonly Dictionary<string, LlmCredential> _credentials
             = new Dictionary<string, LlmCredential>(StringComparer.OrdinalIgnoreCase);
-        private List<string> _activeAliases = new List<string>();
+        private List<string> _activationOrder = new List<string>();
 
-        // ---- 多线程安全委托 ----
+        // ---- 持久化委托 ----
 
         private readonly Func<string> _serializeState;
         private readonly Action<string> _persistAction;
 
         /// <summary>
-        /// 创建凭证注册表实例。
+        /// 创建凭证管理器实例。
         /// </summary>
-        /// <param name="serializeState">将当前内部状态序列化为 JSON 字符串。</param>
         /// <param name="persistAction">将 JSON 字符串持久化到存储后端。</param>
         /// <param name="initialJson">初始 JSON 状态（从存储后端加载）。</param>
+        /// <param name="serializeState">可选：将当前状态序列化为 JSON（用于调试）。</param>
         public CredentialRegistry(
-            Func<string> serializeState,
             Action<string> persistAction,
-            string initialJson = null)
+            string initialJson = null,
+            Func<string> serializeState = null)
         {
-            _serializeState = serializeState ?? throw new ArgumentNullException(nameof(serializeState));
             _persistAction = persistAction ?? throw new ArgumentNullException(nameof(persistAction));
+            _serializeState = serializeState;
 
             if (!string.IsNullOrEmpty(initialJson))
             {
@@ -52,98 +51,17 @@ namespace NPCLife.Infrastructure.Llm
         }
 
         // ================================================================
-        // 别名管理
+        // ICredentialStore（运行时）
         // ================================================================
-
-        public void SetAlias(string alias, LlmCredential credential)
-        {
-            if (string.IsNullOrWhiteSpace(alias))
-                throw new ArgumentException("Alias cannot be empty.", nameof(alias));
-            if (credential == null)
-                throw new ArgumentNullException(nameof(credential));
-
-            lock (_lock)
-            {
-                _aliases[alias] = credential.Clone();
-            }
-            Persist();
-        }
-
-        public void RemoveAlias(string alias)
-        {
-            lock (_lock)
-            {
-                _aliases.Remove(alias);
-                _activeAliases.Remove(alias);
-            }
-            Persist();
-        }
-
-        public bool TryGetCredential(string alias, out LlmCredential credential)
-        {
-            lock (_lock)
-            {
-                if (_aliases.TryGetValue(alias, out var found) && found.IsChatReady())
-                {
-                    credential = found.Clone();
-                    return true;
-                }
-            }
-            credential = null;
-            return false;
-        }
-
-        public IReadOnlyList<string> GetAllAliases()
-        {
-            lock (_lock)
-            {
-                return _aliases.Keys.ToList();
-            }
-        }
-
-        public bool HasAnyCredential
-        {
-            get
-            {
-                lock (_lock)
-                {
-                    return _aliases.Values.Any(c => c.HasApiAccess());
-                }
-            }
-        }
-
-        // ================================================================
-        // 激活顺序（fallback 链路）
-        // ================================================================
-
-        public void SetActiveAliases(IReadOnlyList<string> aliases)
-        {
-            lock (_lock)
-            {
-                // 只保留实际存在的代号，保持传入顺序
-                _activeAliases = aliases
-                    ?.Where(a => _aliases.ContainsKey(a))
-                    .ToList() ?? new List<string>();
-            }
-            Persist();
-        }
-
-        public IReadOnlyList<string> GetActiveAliases()
-        {
-            lock (_lock)
-            {
-                return _activeAliases.ToList();
-            }
-        }
 
         public IReadOnlyList<LlmCredential> GetActiveCredentials()
         {
             lock (_lock)
             {
                 var result = new List<LlmCredential>();
-                foreach (var alias in _activeAliases)
+                foreach (var name in _activationOrder)
                 {
-                    if (_aliases.TryGetValue(alias, out var cred) && cred.IsChatReady())
+                    if (_credentials.TryGetValue(name, out var cred) && cred.IsChatReady())
                     {
                         result.Add(cred.Clone());
                     }
@@ -152,75 +70,159 @@ namespace NPCLife.Infrastructure.Llm
             }
         }
 
-        // ================================================================
-        // 模型发现
-        // ================================================================
-
-        public async Task<IReadOnlyDictionary<string, string[]>> DiscoverModelsAsync(
-            ILlmService llmService,
-            Action<int, int, string, int> progressCallback = null,
-            CancellationToken ct = default)
+        public bool HasCredentials
         {
-            if (llmService == null)
-                throw new ArgumentNullException(nameof(llmService));
-
-            List<KeyValuePair<string, LlmCredential>> allCredentials;
-            lock (_lock)
+            get
             {
-                allCredentials = _aliases
-                    .Where(kv => kv.Value.HasApiAccess())
-                    .Select(kv => new KeyValuePair<string, LlmCredential>(kv.Key, kv.Value.Clone()))
-                    .ToList();
-            }
-
-            var result = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
-            int total = allCredentials.Count;
-
-            for (int i = 0; i < allCredentials.Count; i++)
-            {
-                ct.ThrowIfCancellationRequested();
-
-                var kv = allCredentials[i];
-                var alias = kv.Key;
-                var credential = kv.Value;
-
-                // 查询时不带 modelName（某些 API 需要 modelName 但列表查询不需要）
-                var listCredential = credential.Clone();
-                listCredential.ModelName = credential.ModelName; // 仍传，部分兼容 API 需要
-
-                try
+                lock (_lock)
                 {
-                    string[] modelNames = await llmService.ListModelsAsync(listCredential, ct);
-                    result[alias] = modelNames ?? new string[0];
-                    progressCallback?.Invoke(i + 1, total, alias, modelNames?.Length ?? 0);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch
-                {
-                    result[alias] = new string[0];
-                    progressCallback?.Invoke(i + 1, total, alias, -1);
+                    return _credentials.Values.Any(c => c.HasApiAccess());
                 }
             }
-
-            return result;
         }
 
-        public void AddManualModel(string alias, string modelName)
+        public LlmCredential Resolve(string credentialName, string modelName)
+        {
+            var cred = Get(credentialName);
+            if (cred == null) return null;
+            if (!string.IsNullOrEmpty(modelName))
+                cred.ModelName = modelName;
+            return cred;
+        }
+
+        // ================================================================
+        // CRUD
+        // ================================================================
+
+        public void Create(string name, LlmCredential credential)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                throw new ArgumentException("Name cannot be empty.", nameof(name));
+            if (credential == null)
+                throw new ArgumentNullException(nameof(credential));
+
+            lock (_lock)
+            {
+                if (_credentials.ContainsKey(name))
+                    throw new ArgumentException($"Credential '{name}' already exists.", nameof(name));
+                _credentials[name] = credential.Clone();
+            }
+            Persist();
+        }
+
+        public LlmCredential Get(string name)
+        {
+            lock (_lock)
+            {
+                if (_credentials.TryGetValue(name, out var found))
+                    return found.Clone();
+            }
+            return null;
+        }
+
+        public void Update(string name, LlmCredential credential)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                throw new ArgumentException("Name cannot be empty.", nameof(name));
+            if (credential == null)
+                throw new ArgumentNullException(nameof(credential));
+
+            lock (_lock)
+            {
+                if (!_credentials.ContainsKey(name))
+                    throw new KeyNotFoundException($"Credential '{name}' not found.");
+                _credentials[name] = credential.Clone();
+            }
+            Persist();
+        }
+
+        public void Delete(string name)
+        {
+            lock (_lock)
+            {
+                _credentials.Remove(name);
+                _activationOrder.Remove(name);
+            }
+            Persist();
+        }
+
+        public IReadOnlyList<(string Name, LlmCredential Credential)> GetAll()
+        {
+            lock (_lock)
+            {
+                return _credentials
+                    .Select(kv => (kv.Key, kv.Value.Clone()))
+                    .ToList();
+            }
+        }
+
+        public bool Exists(string name)
+        {
+            lock (_lock)
+            {
+                return _credentials.ContainsKey(name);
+            }
+        }
+
+        // ================================================================
+        // 激活顺序（Fallback 链路）
+        // ================================================================
+
+        public IReadOnlyList<string> GetActivationOrder()
+        {
+            lock (_lock)
+            {
+                return _activationOrder.ToList();
+            }
+        }
+
+        public void SetActivationOrder(IReadOnlyList<string> names)
+        {
+            lock (_lock)
+            {
+                _activationOrder = names
+                    ?.Where(n => _credentials.ContainsKey(n))
+                    .ToList() ?? new List<string>();
+            }
+            Persist();
+        }
+
+        public void Activate(string name)
+        {
+            lock (_lock)
+            {
+                if (!_credentials.ContainsKey(name)) return;
+                if (_activationOrder.Contains(name)) return;
+                _activationOrder.Add(name);
+            }
+            Persist();
+        }
+
+        public void Deactivate(string name)
+        {
+            lock (_lock)
+            {
+                _activationOrder.Remove(name);
+            }
+            Persist();
+        }
+
+        // ================================================================
+        // 模型设置
+        // ================================================================
+
+        public void SetModel(string name, string modelName)
         {
             if (string.IsNullOrWhiteSpace(modelName))
                 return;
 
             lock (_lock)
             {
-                if (!_aliases.TryGetValue(alias, out var existing))
+                if (!_credentials.TryGetValue(name, out var existing))
                     return;
 
-                // 手动添加模型：更新该代号对应凭证的 modelName
                 existing.ModelName = modelName;
-                _aliases[alias] = existing.Clone();
+                _credentials[name] = existing.Clone();
             }
             Persist();
         }
@@ -250,9 +252,9 @@ namespace NPCLife.Infrastructure.Llm
         {
             var w = new JsonWriter(2048);
 
-            // Aliases
-            var aliasJsons = new List<string>();
-            foreach (var kv in _aliases)
+            // 凭证列表（JSON 字段名保持 "aliases" 以兼容旧数据）
+            var credJsons = new List<string>();
+            foreach (var kv in _credentials)
             {
                 var cred = kv.Value;
                 var cw = new JsonWriter(256);
@@ -262,12 +264,12 @@ namespace NPCLife.Infrastructure.Llm
                 cw.Prop("modelName", cred.ModelName ?? "");
                 cw.Prop("providerType", cred.ProviderType.ToString());
                 cw.Prop("timeoutSeconds", cred.TimeoutSeconds);
-                aliasJsons.Add(cw.Close());
+                credJsons.Add(cw.Close());
             }
-            w.ArrayRaw("aliases", aliasJsons);
+            w.ArrayRaw("aliases", credJsons);
 
-            // ActiveAliases
-            w.Array("activeAliases", _activeAliases);
+            // 激活顺序（JSON 字段名保持 "activeAliases" 以兼容旧数据）
+            w.Array("activeAliases", _activationOrder);
 
             return w.Close();
         }
@@ -281,7 +283,7 @@ namespace NPCLife.Infrastructure.Llm
             {
                 var dict = JsonParser.ParseDict(json);
 
-                // Aliases
+                // 凭证列表
                 if (dict.TryGetValue("aliases", out string aliasesJson))
                 {
                     var aliasDicts = JsonParser.ParseObjectArray(aliasesJson);
@@ -301,18 +303,18 @@ namespace NPCLife.Infrastructure.Llm
                             && int.TryParse(ts, out var tsVal))
                             cred.TimeoutSeconds = tsVal;
 
-                        _aliases[alias] = cred;
+                        _credentials[alias] = cred;
                     }
                 }
 
-                // ActiveAliases
+                // 激活顺序
                 if (dict.TryGetValue("activeAliases", out string activeJson))
                 {
                     var activeList = JsonParser.ParseStringArray(activeJson);
                     if (activeList != null)
                     {
-                        _activeAliases = activeList
-                            .Where(a => _aliases.ContainsKey(a))
+                        _activationOrder = activeList
+                            .Where(a => _credentials.ContainsKey(a))
                             .ToList();
                     }
                 }

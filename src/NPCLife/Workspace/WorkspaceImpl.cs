@@ -63,6 +63,8 @@ namespace NPCLife.Workspace
         public string LastActivityAt => _state.LastActivityAt;
         public string Outcome => _state.Outcome;
         public string DirectorMessage => _state.DirectorMessage;
+        public string ModelRefs => _state.ModelRefs;
+        public string CurrentModel => _state.CurrentModel;
 
         // ================================================================
         // 组件
