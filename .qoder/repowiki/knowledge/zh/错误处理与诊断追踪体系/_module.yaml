@@ -1,0 +1,12 @@
+schema_version: 1
+module_path: error_handling
+title: 错误处理与诊断追踪体系
+scope: []
+source_files:
+    - src/NPCLife/Framework/ErrorHandler.cs
+    - src/NPCLife/Framework/EventBus.cs
+    - src/NPCLife/Agent/AgentLoop.cs
+    - src/NPCLife/Framework/Mcp/McpSkillRegistry.cs
+    - src/NPCLife/Framework/AgentPipeline.cs
+depends_on: []
+related_to: []

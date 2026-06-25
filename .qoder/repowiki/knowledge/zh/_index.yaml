@@ -1,0 +1,186 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: zh-CN
+branch: master
+nodes_managed: true
+exported_at: "2026-06-25T18:06:06Z"
+modules:
+    "":
+        dir_name: LLM 驱动的游戏叙事中间件
+        title: LLM 驱动的游戏叙事中间件
+        scope:
+            - README.md
+            - .gitignore
+            - NPCLife.slnx
+            - docs/
+            - docs\KnowledgeModule.md
+            - src\NPCLife\Agent\AgentLoop.cs
+            - src\NPCLife\Cards\CardDataStructs.cs
+            - src\NPCLife\Cards\CharacterCard.cs
+            - src\NPCLife\Cards\ColonyContext.cs
+            - src\NPCLife\Cards\EnvironmentCard.cs
+            - src\NPCLife\Cards\EventCard.cs
+            - src\NPCLife\Cards\IExtensibleCard.cs
+            - src\NPCLife\Cards\ObjectiveCard.cs
+            - src\NPCLife\Core\EventQuery.cs
+            - src\NPCLife\Core\ICharacterContentProvider.cs
+            - src\NPCLife\Core\ICredentialRegistry.cs
+            - src\NPCLife\Core\IEventLog.cs
+            - src\NPCLife\Core\IExternalKnowledgeSource.cs
+            - src\NPCLife\Core\IInteractionStore.cs
+            - src\NPCLife\Core\IKnowledgeBase.cs
+            - src\NPCLife\Core\IKnowledgeService.cs
+            - src\NPCLife\Core\ILlmApiProvider.cs
+            - src\NPCLife\Core\ILlmService.cs
+            - src\NPCLife\Core\IScriptConsumer.cs
+            - src\NPCLife\Core\IScriptLineResolver.cs
+            - src\NPCLife\Core\IStorage.cs
+            - src\NPCLife\Core\IWorkspaceManager.cs
+            - src\NPCLife\Core\KnowledgeEntry.cs
+            - src\NPCLife\Core\KnowledgeService.cs
+            - src\NPCLife\Driver\DriverConfig.cs
+            - src\NPCLife\Driver\PromptConfig.cs
+            - src\NPCLife\Framework\AgentPipeline.cs
+            - src\NPCLife\Framework\ErrorHandler.cs
+            - src\NPCLife\Framework\EventBus.cs
+            - src\NPCLife\Framework\FrameworkConfig.cs
+            - src\NPCLife\Framework\FrameworkStatus.cs
+            - src\NPCLife\Framework\ILogger.cs
+            - src\NPCLife\Framework\JsonHelper.cs
+            - src\NPCLife\Framework\JsonParser.cs
+            - src\NPCLife\Framework\JsonWriter.cs
+            - src\NPCLife\Framework\LifecycleManager.cs
+            - src\NPCLife\Framework\Llm\LlmConfig.cs
+            - src\NPCLife\Framework\Llm\LlmCredential.cs
+            - src\NPCLife\Framework\Llm\LlmMessage.cs
+            - src\NPCLife\Framework\Llm\LlmRequest.cs
+            - src\NPCLife\Framework\Llm\LlmResponse.cs
+            - src\NPCLife\Framework\Llm\LlmToolCall.cs
+            - src\NPCLife\Framework\Llm\TranscriptValidator.cs
+            - src\NPCLife\Framework\MainThreadDispatcher.cs
+            - src\NPCLife\Framework\Mcp\CardSerializer.cs
+            - src\NPCLife\Framework\Mcp\ICardSerializer.cs
+            - src\NPCLife\Framework\Mcp\IMcpHookProvider.cs
+            - src\NPCLife\Framework\Mcp\McpParamAttribute.cs
+            - src\NPCLife\Framework\Mcp\McpSkillAttribute.cs
+            - src\NPCLife\Framework\Mcp\McpSkillRegistry.cs
+            - src\NPCLife\Framework\Mcp\McpTool.cs
+            - src\NPCLife\Framework\Mcp\McpToolAttribute.cs
+            - src\NPCLife\Framework\Mcp\McpToolDefinition.cs
+            - src\NPCLife\Framework\Mcp\McpToolGenerator.cs
+            - src\NPCLife\Framework\Mcp\McpToolInvoker.cs
+            - src\NPCLife\Framework\Mcp\McpTypeMapper.cs
+            - src\NPCLife\Framework\Mcp\MetricsMcpTools.cs
+            - src\NPCLife\Framework\MetricsInterceptor.cs
+            - src\NPCLife\Framework\RandomInt.cs
+            - src\NPCLife\Framework\RuntimeMetrics.cs
+            - src\NPCLife\Framework\Script\ScriptFormat.cs
+            - src\NPCLife\Framework\Script\ScriptLine.cs
+            - src\NPCLife\Framework\SemanticLabels.cs
+            - src\NPCLife\Infrastructure\InteractionHistoryStore.cs
+            - src\NPCLife\Infrastructure\Knowledge\BuiltInKnowledgeBase.cs
+            - src\NPCLife\Infrastructure\Llm\AnthropicAdapter.cs
+            - src\NPCLife\Infrastructure\Llm\CredentialRegistry.cs
+            - src\NPCLife\Infrastructure\Llm\LlmAccessor.cs
+            - src\NPCLife\Infrastructure\Llm\OpenAiAdapter.cs
+            - src\NPCLife\Infrastructure\Mcp\KnowledgeMcpProvider.cs
+            - src\NPCLife\Infrastructure\Mcp\SystemMcpProvider.cs
+            - src\NPCLife\Infrastructure\ScriptDeliveryService.cs
+            - src\NPCLife\NPCLife.csproj
+            - src\NPCLife\Prompts\DirectorPrompt.txt
+            - src\NPCLife\Prompts\FreelancerPrompt.txt
+            - src\NPCLife\Prompts\ScreenwriterPrompt.txt
+            - src\NPCLife\Workspace\DirectionMcpTools.cs
+            - src\NPCLife\Workspace\FreelancerMcpTools.cs
+            - src\NPCLife\Workspace\IWorkspace.cs
+            - src\NPCLife\Workspace\RoleSkillProfile.cs
+            - src\NPCLife\Workspace\SkillSlot.cs
+            - src\NPCLife\Workspace\StorylineSignal.cs
+            - src\NPCLife\Workspace\WorkspaceEventPool.cs
+            - src\NPCLife\Workspace\WorkspaceImpl.cs
+            - src\NPCLife\Workspace\WorkspaceManager.cs
+            - src\NPCLife\Workspace\WorkspaceState.cs
+            - src\NPCLife\Workspace\WritingMcpTools.cs
+            - tests\NPCLife.Tests\Cards\EventCardTests.cs
+            - tests\NPCLife.Tests\Core\EventQueryTests.cs
+            - tests\NPCLife.Tests\Driver\DriverConfigTests.cs
+            - tests\NPCLife.Tests\Driver\WorkspaceEventPoolTests.cs
+            - tests\NPCLife.Tests\Framework\CardSerializerTests.cs
+            - tests\NPCLife.Tests\Framework\JsonHelperTests.cs
+            - tests\NPCLife.Tests\Framework\JsonParserTests.cs
+            - tests\NPCLife.Tests\Framework\JsonWriterTests.cs
+            - tests\NPCLife.Tests\Framework\MainThreadDispatcherTests.cs
+            - tests\NPCLife.Tests\Framework\McpSkillRegistryTests.cs
+            - tests\NPCLife.Tests\Framework\McpToolGeneratorTests.cs
+            - tests\NPCLife.Tests\Framework\RandomIntTests.cs
+            - tests\NPCLife.Tests\Framework\ScriptFormatTests.cs
+            - tests\NPCLife.Tests\Framework\SemanticLabelsTests.cs
+            - tests\NPCLife.Tests\Helpers\LogTestBase.cs
+            - tests\NPCLife.Tests\NPCLife.Tests.csproj
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    build_system:
+        dir_name: 基于 .NET SDK 的构建与测试体系
+        title: 基于 .NET SDK 的构建与测试体系
+        scope: []
+        source_files:
+            - NPCLife.slnx
+            - src/NPCLife/NPCLife.csproj
+            - tests/NPCLife.Tests/NPCLife.Tests.csproj
+        children: []
+        depends_on: []
+        related_to: []
+    configuration_system:
+        dir_name: 基于 POCO 与 JSON 序列化的分层配置系统
+        title: 基于 POCO 与 JSON 序列化的分层配置系统
+        scope: []
+        source_files:
+            - src/NPCLife/Framework/FrameworkConfig.cs
+            - src/NPCLife/Driver/DriverConfig.cs
+            - src/NPCLife/Driver/PromptConfig.cs
+            - src/NPCLife/Framework/Llm/LlmConfig.cs
+            - src/NPCLife/Infrastructure/Llm/CredentialRegistry.cs
+        children: []
+        depends_on: []
+        related_to: []
+    dependency_management:
+        dir_name: .NET 项目依赖管理策略
+        title: .NET 项目依赖管理策略
+        scope: []
+        source_files:
+            - src/NPCLife/NPCLife.csproj
+            - tests/NPCLife.Tests/NPCLife.Tests.csproj
+            - NPCLife.slnx
+        children: []
+        depends_on: []
+        related_to: []
+    error_handling:
+        dir_name: 错误处理与诊断追踪体系
+        title: 错误处理与诊断追踪体系
+        scope: []
+        source_files:
+            - src/NPCLife/Framework/ErrorHandler.cs
+            - src/NPCLife/Framework/EventBus.cs
+            - src/NPCLife/Agent/AgentLoop.cs
+            - src/NPCLife/Framework/Mcp/McpSkillRegistry.cs
+            - src/NPCLife/Framework/AgentPipeline.cs
+        children: []
+        depends_on: []
+        related_to: []
+    logging_system:
+        dir_name: 日志系统架构与规范
+        title: 日志系统架构与规范
+        scope: []
+        source_files:
+            - src/NPCLife/Framework/ILogger.cs
+            - src/NPCLife/Framework/ErrorHandler.cs
+            - src/NPCLife/Framework/AgentPipeline.cs
+            - src/NPCLife/Framework/EventBus.cs
+            - src/NPCLife/Framework/LifecycleManager.cs
+            - tests/NPCLife.Tests/Helpers/LogTestBase.cs
+            - src/NPCLife/Infrastructure/Llm/LlmAccessor.cs
+        children: []
+        depends_on: []
+        related_to: []
