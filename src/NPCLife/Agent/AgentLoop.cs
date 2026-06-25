@@ -304,9 +304,9 @@ namespace NPCLife.Agent
                         _logger.Message($"[NPCLife.Agent] Tool result ({tc.Name}): {TruncateResult(result)}");
                     }
 
-                    // --- AppendingToolResults ---
-                    // 同一个 response 只生成一条 assistant 消息（content + tool_calls），
-                    // 后跟每条 tool 结果消息。杜绝双重写入。
+                    // —— AppendingToolResults ——
+                    // 每个 LLM 响应产生一条 assistant 消息（含 content 和 tool_calls），
+                    // 后跟各 tool 的返回结果消息。确保单轮多工具调用时结构正确。
                     _state = AgentRunState.AppendingToolResults;
                     _messages = AppendAssistantTurn(_messages, response, toolResults).ToList();
 
@@ -550,15 +550,6 @@ namespace NPCLife.Agent
 
         /// <summary>获取当前运行状态。</summary>
         public AgentRunState State => _state;
-
-        /// <summary>获取当前处理状态（调试用，兼容旧接口）。</summary>
-        public bool IsProcessing => _state != AgentRunState.Idle;
-
-        /// <summary>获取当前 Agent 轮数（调试用）。</summary>
-        public int CurrentRound => _round;
-
-        /// <summary>获取当前运行 ID（调试用）。</summary>
-        public string CurrentRunId => _currentRunId;
 
         // ================================================================
         // IDisposable

@@ -32,11 +32,11 @@ namespace NPCLife.Core
 
             var results = new List<KnowledgeEntry>();
 
-            // 内部缓存
+            // 查询内部可写缓存
             if (_cache.TryLookup(term, out var cacheEntry))
                 results.Add(cacheEntry);
 
-            // 外部源
+            // 查询所有只读外部源
             foreach (var src in _externals)
             {
                 var entries = src.QueryExact(term);

@@ -25,16 +25,15 @@ namespace NPCLife.Framework
             var result = new Dictionary<string, string>();
             if (string.IsNullOrEmpty(json) || json == "{}") return result;
 
-            int pos = 1; // skip '{'
+            int pos = 1; // 跳过对象起始 '{'
             int len = json.Length;
 
             while (pos < len)
             {
-                // 跳过空白
                 while (pos < len && IsWhitespace(json[pos])) pos++;
                 if (pos >= len || json[pos] == '}') break;
 
-                // 读 key
+                // —— 解析键（引号括起的字符串）——
                 if (json[pos] != '"') break;
                 int keyStart = ++pos;
                 while (pos < len && json[pos] != '"')
@@ -43,13 +42,12 @@ namespace NPCLife.Framework
                     pos++;
                 }
                 string key = UnescapeJson(json.Substring(keyStart, pos - keyStart));
-                pos++; // skip closing '"'
+                pos++;
 
-                // 跳过 ':'
                 while (pos < len && (json[pos] == ' ' || json[pos] == ':')) pos++;
                 if (pos >= len) break;
 
-                // 读 value
+                // —— 解析值（字符串 / 嵌套结构 / 裸值）——
                 string value = "";
                 if (json[pos] == '"')
                 {
@@ -60,11 +58,11 @@ namespace NPCLife.Framework
                         pos++;
                     }
                     value = UnescapeJson(json.Substring(valStart, pos - valStart));
-                    pos++; // skip closing '"'
+                    pos++;
                 }
                 else if (json[pos] == '{' || json[pos] == '[')
                 {
-                    // 嵌套对象/数组：整体截取为原始 JSON
+                    // 嵌套对象/数组：深度匹配截取为原始 JSON
                     int depth = 1;
                     int valStart = pos;
                     pos++;
@@ -78,7 +76,7 @@ namespace NPCLife.Framework
                 }
                 else
                 {
-                    // 裸值（数字、布尔）
+                    // 裸值（数字、布尔、null 等非引号值）
                     int valStart = pos;
                     while (pos < len && json[pos] != ',' && json[pos] != '}'
                         && !IsWhitespace(json[pos]))
@@ -87,7 +85,6 @@ namespace NPCLife.Framework
                 }
                 result[key] = value;
 
-                // 跳过 ','
                 while (pos < len && (json[pos] == ' ' || json[pos] == ',')) pos++;
             }
 
@@ -102,13 +99,14 @@ namespace NPCLife.Framework
             var result = new List<Dictionary<string, string>>();
             if (string.IsNullOrEmpty(json) || json == "[]") return result;
 
-            int pos = 1; // skip '['
+            int pos = 1; // 跳过数组起始 '['
             while (pos < json.Length)
             {
                 while (pos < json.Length && (json[pos] == ' ' || json[pos] == ',' || json[pos] == '\n')) pos++;
                 if (pos >= json.Length || json[pos] == ']') break;
                 if (json[pos] == '{')
                 {
+                    // 深度匹配截取完整 JSON 对象元素
                     int depth = 1;
                     int start = pos;
                     pos++;
@@ -145,14 +143,14 @@ namespace NPCLife.Framework
                         case 'r': sb.Append('\r'); break;
                         case 't': sb.Append('\t'); break;
                         case 'u':
-                            // \uXXXX Unicode 转义
+                            // \uXXXX Unicode 转义（4 位十六进制码）
                             if (i + 5 < s.Length)
                             {
                                 var hex = s.Substring(i + 2, 4);
                                 if (int.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int code))
                                 {
                                     sb.Append((char)code);
-                                    i += 4; // 外层 i++ 会再跳 1，共跳过 5 个字符 (\uXXXX)
+                                    i += 4; // 跳过 4 位十六进制码，循环末尾 i++ 前进到下一个字符
                                 }
                             }
                             break;
@@ -177,7 +175,7 @@ namespace NPCLife.Framework
             var result = new List<string>();
             if (string.IsNullOrEmpty(json) || json == "[]") return result;
 
-            int pos = 1; // skip '['
+            int pos = 1; // 跳过数组起始 '['
             int len = json.Length;
             while (pos < len)
             {
@@ -186,6 +184,7 @@ namespace NPCLife.Framework
 
                 if (json[pos] == '"')
                 {
+                    // 提取引号括起的字符串元素
                     int start = ++pos;
                     while (pos < len && json[pos] != '"')
                     {
@@ -193,11 +192,11 @@ namespace NPCLife.Framework
                         pos++;
                     }
                     result.Add(UnescapeJson(json.Substring(start, pos - start)));
-                    pos++; // skip closing '"'
+                    pos++;
                 }
                 else
                 {
-                    // 裸值（数字等），跳过
+                    // 非引号值（数字等），跳过该元素
                     while (pos < len && json[pos] != ',' && json[pos] != ']') pos++;
                 }
             }

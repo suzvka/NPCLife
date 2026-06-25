@@ -40,7 +40,7 @@ namespace NPCLife.Cards
 
     /// <summary>
     /// IGameEvent 的具体可序列化实现。供事件缓存（KV 存储）和反序列化使用。
-    /// 与 EventCardMapper.EventCardImpl 等价，但为 public 可在框架各处复用。
+    /// 公开类，可在框架各处复用。
     /// </summary>
     public class EventCardData : IGameEvent, IExtensibleCard
     {

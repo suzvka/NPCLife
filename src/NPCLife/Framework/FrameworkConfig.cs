@@ -203,20 +203,6 @@ namespace NPCLife.Framework
                 Features = new FeatureToggleSection()
             };
         }
-
-        /// <summary>
-        /// 从现有 DriverConfig 迁移配置（向后兼容）。
-        /// </summary>
-        public static FrameworkConfig FromDriverConfig(DriverConfig driverConfig)
-        {
-            if (driverConfig == null) return CreateDefault();
-            return new FrameworkConfig
-            {
-                Driver = driverConfig,
-                Diagnostics = new DiagnosticSection(),
-                Features = new FeatureToggleSection()
-            };
-        }
     }
 
     /// <summary>

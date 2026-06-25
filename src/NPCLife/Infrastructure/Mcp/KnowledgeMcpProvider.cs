@@ -238,7 +238,7 @@ namespace NPCLife.Infrastructure.Mcp
 
             if (entries.Count == 1)
             {
-                // 单条：保留简化的旧格式兼容性
+                // 单条结果：输出扁平 JSON（与多条结果的数组格式区分）
                 var w = new JsonWriter(1024);
                 w.Prop("hit", true);
                 WProps(w, entries[0]);

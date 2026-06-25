@@ -47,12 +47,10 @@ namespace NPCLife.Framework
         }
 
         /// <summary>
-        /// 工具调用前：记录工具名。
-        /// 实际计数在 AfterToolCall 中完成（需判断成功/失败）。
+        /// 工具调用前记录工具名。实际计数在 OnAfterToolCall 中统一完成（需判断成功/失败）。
         /// </summary>
         public override void OnBeforeToolCall(ToolCallContext ctx)
         {
-            // 不做计数，等 AfterToolCall 再判断结果
         }
 
         /// <summary>

@@ -219,7 +219,7 @@ namespace NPCLife.Framework.Script
                         // 字段缺失：DefaultValue 已被 ApplyDefaults 处理
                     }
 
-                    // 必需字段校验：t 缺失时报 warning 但保留行
+                    // 非 Pause 类型的文本字段缺失：保留 ApplyDefaults 设置的空字符串
                     if (dict.TryGetValue("t", out string textVal) == false &&
                         line.Type != ScriptLineType.Pause)
                     {

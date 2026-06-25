@@ -117,17 +117,6 @@ namespace NPCLife.Framework.Mcp
         }
 
         /// <summary>
-        /// 注册 MethodInfo 工具到指定技能。内部包装为 McpTool。
-        /// 保留此重载以兼容现有调用方。
-        /// </summary>
-        public static bool RegisterTool(string skillId, MethodInfo method)
-        {
-            if (string.IsNullOrEmpty(skillId) || method == null) return false;
-            if (method.GetCustomAttribute<McpToolAttribute>() == null) return false;
-            return RegisterTool(skillId, McpTool.FromMethod(method));
-        }
-
-        /// <summary>
         /// 从类型自动扫描并注册工具到技能。
         /// 优先级：方法级 [McpSkill] > 类级 [McpSkill]。
         /// 无任何 [McpSkill] 标注的方法将被跳过。
