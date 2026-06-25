@@ -30,13 +30,31 @@ namespace NPCLife.Framework.Llm
         public int TimeoutSeconds { get; set; } = 120;
 
         /// <summary>
-        /// 验证凭证是否完整（baseUrl + apiKey + modelName 均非空）。
+        /// API 访问级校验：baseUrl + apiKey 均非空即可。
+        /// 适用于模型发现、连接测试等不涉及具体模型的场景。
         /// </summary>
-        public bool IsValid()
+        public bool HasApiAccess()
         {
             return !string.IsNullOrEmpty(BaseUrl)
-                && !string.IsNullOrEmpty(ApiKey)
-                && !string.IsNullOrEmpty(ModelName);
+                && !string.IsNullOrEmpty(ApiKey);
+        }
+
+        /// <summary>
+        /// 聊天级校验：baseUrl + apiKey + modelName 均非空。
+        /// 适用于 Agent 发送对话请求的场景。
+        /// </summary>
+        public bool IsChatReady()
+        {
+            return HasApiAccess() && !string.IsNullOrEmpty(ModelName);
+        }
+
+        /// <summary>
+        /// [已废弃] 使用 <see cref="IsChatReady"/> 替代。
+        /// </summary>
+        [System.Obsolete("Use IsChatReady() for chat-scope checks, or HasApiAccess() for API-access checks.")]
+        public bool IsValid()
+        {
+            return IsChatReady();
         }
 
         /// <summary>

@@ -83,7 +83,7 @@ namespace NPCLife.Infrastructure.Llm
         {
             lock (_lock)
             {
-                if (_aliases.TryGetValue(alias, out var found) && found.IsValid())
+                if (_aliases.TryGetValue(alias, out var found) && found.IsChatReady())
                 {
                     credential = found.Clone();
                     return true;
@@ -107,7 +107,7 @@ namespace NPCLife.Infrastructure.Llm
             {
                 lock (_lock)
                 {
-                    return _aliases.Values.Any(c => c.IsValid());
+                    return _aliases.Values.Any(c => c.HasApiAccess());
                 }
             }
         }
@@ -143,7 +143,7 @@ namespace NPCLife.Infrastructure.Llm
                 var result = new List<LlmCredential>();
                 foreach (var alias in _activeAliases)
                 {
-                    if (_aliases.TryGetValue(alias, out var cred) && cred.IsValid())
+                    if (_aliases.TryGetValue(alias, out var cred) && cred.IsChatReady())
                     {
                         result.Add(cred.Clone());
                     }
@@ -168,7 +168,7 @@ namespace NPCLife.Infrastructure.Llm
             lock (_lock)
             {
                 allCredentials = _aliases
-                    .Where(kv => kv.Value.IsValid())
+                    .Where(kv => kv.Value.HasApiAccess())
                     .Select(kv => new KeyValuePair<string, LlmCredential>(kv.Key, kv.Value.Clone()))
                     .ToList();
             }

@@ -126,7 +126,7 @@ namespace NPCLife.Infrastructure.Llm
                     ct.ThrowIfCancellationRequested();
 
                     var credential = credentials[i];
-                    if (credential == null || !credential.IsValid())
+                    if (credential == null || !credential.IsChatReady())
                     {
                         lastError = $"credential[{i}] is null or invalid";
                         continue;
@@ -201,10 +201,10 @@ namespace NPCLife.Infrastructure.Llm
                     new ArgumentNullException(nameof(credential)));
             }
 
-            if (!credential.IsValid())
+            if (!credential.HasApiAccess())
             {
                 return Task.FromException<bool>(
-                    new ArgumentException("incomplete credential: baseUrl, apiKey and modelName are required"));
+                    new ArgumentException("incomplete credential: baseUrl and apiKey are required"));
             }
 
             var tcs = new TaskCompletionSource<bool>();
