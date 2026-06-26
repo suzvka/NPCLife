@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: ""
-title: LLM 驱动的游戏叙事中间件
+title: NPC 叙事生成与多智能体协作框架
 scope:
     - README.md
     - .gitignore
