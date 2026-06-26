@@ -52,5 +52,11 @@ namespace NPCLife.Workspace
         /// <summary>结束本轮叙事。归档 recap + outcome，给导演留言。</summary>
         bool FinishRound(string recap, string outcome, string directorNote,
             IReadOnlyList<string> triggerEventIds, WorkspaceRole callerRole, string callerId = null);
+
+        /// <summary>
+        /// 释放指定轮次的 ScriptLines 内存。游戏侧消费完台词后调用。
+        /// ScriptLines 不参与持久化，仅用于内存回收。
+        /// </summary>
+        void DiscardScriptLines(int roundSeq);
     }
 }

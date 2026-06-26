@@ -25,6 +25,9 @@ namespace NPCLife.Cards
         /// <summary>发生时刻 (游戏 tick)。</summary>
         int Tick { get; }
 
+        /// <summary>可读时间标签 (例如 "第2天 黎明" 或 "Year 1, Spring, Day 3")。由适配层填充。</summary>
+        string TimeLabel { get; }
+
         /// <summary>重要度。由事件绑定点直接声明，EventPool 直接累加。</summary>
         float Importance { get; }
 
@@ -49,6 +52,7 @@ namespace NPCLife.Cards
         public List<string> Tags { get; set; }
         public List<string> Keywords { get; set; }
         public int Tick { get; set; }
+        public string TimeLabel { get; set; }
         public float Importance { get; set; }
         public List<EventActorRef> Actors { get; set; }
         public string MapHint { get; set; }
@@ -71,6 +75,7 @@ namespace NPCLife.Cards
                 Tags = source.Tags != null ? new List<string>(source.Tags) : new List<string>(),
                 Keywords = source.Keywords != null ? new List<string>(source.Keywords) : new List<string>(),
                 Tick = source.Tick,
+                TimeLabel = source.TimeLabel,
                 Importance = source.Importance,
                 Actors = source.Actors != null
                     ? source.Actors.Select(a => new EventActorRef { ID = a.ID, Name = a.Name, Role = a.Role, RefType = a.RefType }).ToList()

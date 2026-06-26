@@ -184,6 +184,29 @@ namespace NPCLife.Workspace
         }
 
         // ================================================================
+        // 内存管理
+        // ================================================================
+
+        /// <summary>
+        /// 释放指定轮次的 ScriptLines 内存。游戏侧消费完台词后调用。
+        /// </summary>
+        public void DiscardScriptLines(int roundSeq)
+        {
+            if (_state.Rounds == null) return;
+
+            for (int i = 0; i < _state.Rounds.Count; i++)
+            {
+                if (_state.Rounds[i].Seq == roundSeq)
+                {
+                    var round = _state.Rounds[i];
+                    round.ScriptLines = null;
+                    _state.Rounds[i] = round;
+                    break;
+                }
+            }
+        }
+
+        // ================================================================
         // 内部状态变更（由 WorkspaceManager 调用）
         // ================================================================
 

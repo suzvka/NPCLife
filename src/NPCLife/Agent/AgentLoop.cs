@@ -69,6 +69,12 @@ namespace NPCLife.Agent
         private List<LlmMessage> _messages;
         private IReadOnlyList<IGameEvent> _drained;
 
+        // 重试保护：防止相同错误导致无限循环
+        private int _consecutiveFailures;
+        private const int MaxConsecutiveFailures = 3;
+        private DateTime _lastFailureTime = DateTime.MinValue;
+        private static readonly TimeSpan RetryCooldown = TimeSpan.FromSeconds(30);
+
         /// <summary>
         /// 创建 AgentLoop 并自动订阅池子的 OnThresholdReached 事件。
         /// </summary>
@@ -126,6 +132,20 @@ namespace NPCLife.Agent
         {
             if (_state != AgentRunState.Idle) return;
             if (_pool.PendingCount == 0) return;
+
+            // 重试保护：超过最大连续失败次数且冷却期未满，拒绝重试
+            if (_consecutiveFailures >= MaxConsecutiveFailures)
+            {
+                var elapsed = DateTime.UtcNow - _lastFailureTime;
+                if (elapsed < RetryCooldown)
+                {
+                    _logger?.Warning($"[NPCLife.Agent] Retry blocked: {_consecutiveFailures} consecutive failures, cooldown {(RetryCooldown - elapsed).TotalSeconds:F0}s remaining.");
+                    return;
+                }
+                // 冷却期已过，重置计数器允许重试
+                _logger.Message($"[NPCLife.Agent] Retry cooldown elapsed, allowing retry after {_consecutiveFailures} failures.");
+                _consecutiveFailures = 0;
+            }
 
             // 非阻塞获取信号量
             if (!_gate.Wait(0)) return;
@@ -225,6 +245,18 @@ namespace NPCLife.Agent
                     _state = AgentRunState.CallingLlm;
                     var request = BuildLlmRequest();
 
+                    // 诊断日志：记录工具定义数量
+                    int toolCount = 0;
+                    if (!string.IsNullOrEmpty(request.ToolsJson) && request.ToolsJson != "[]")
+                    {
+                        toolCount = request.ToolsJson.Split(new[] { "\"name\"" }, System.StringSplitOptions.None).Length - 1;
+                        _logger.Message($"[NPCLife.Agent] LLM request: {request.Messages.Count} messages, {toolCount} tools, model={request.Model ?? "default"}");
+                    }
+                    else
+                    {
+                        _logger.Warning($"[NPCLife.Agent] LLM request: NO TOOLS defined! ToolsJson={request.ToolsJson?.Substring(0, Math.Min(100, request.ToolsJson?.Length ?? 0)) ?? "null"}");
+                    }
+
                     // 管道拦截：LLM 请求前
                     var llmCtx = new LlmContext { Request = request };
                     AgentPipeline.RunBeforeLlm(llmCtx);
@@ -239,6 +271,14 @@ namespace NPCLife.Agent
 
                     if (response == null || !response.IsSuccess)
                         throw new InvalidOperationException(response?.Error ?? "null response");
+
+                    // 诊断日志：记录 LLM 响应概要
+                    _logger.Message($"[NPCLife.Agent] LLM response: hasToolCalls={response.HasToolCalls}, contentLength={response.Content?.Length ?? 0}, model={response.Model ?? "unknown"}");
+                    if (!string.IsNullOrEmpty(response.Content))
+                    {
+                        var preview = response.Content.Length > 200 ? response.Content.Substring(0, 200) + "..." : response.Content;
+                        _logger.Message($"[NPCLife.Agent] LLM content preview: {preview}");
+                    }
 
                     EventBus.Publish(FrameworkEvents.LlmResponseReceived, EventArg.WithPayload(
                         ("runId", runId),
@@ -351,6 +391,9 @@ namespace NPCLife.Agent
             _drained = null;
             _messages = null;
 
+            // 成功时重置连续失败计数器
+            _consecutiveFailures = 0;
+
             _logger.Message($"[NPCLife.Agent] Loop complete. {count} events processed. (runId={runId})");
 
             // 管道拦截：循环结束
@@ -373,20 +416,30 @@ namespace NPCLife.Agent
         private void FailAndRequeue(string runId, string error)
         {
             _state = AgentRunState.Error;
-            _logger.Warning($"[NPCLife.Agent] LLM error: {error}. Events remain in pool for retry. (runId={runId})");
+            _consecutiveFailures++;
+            _lastFailureTime = DateTime.UtcNow;
+
+            _logger.Warning($"[NPCLife.Agent] LLM error: {error}. Consecutive failures: {_consecutiveFailures}/{MaxConsecutiveFailures}. (runId={runId})");
             ErrorHandler.ReportError("AgentLoop", error, new Dictionary<string, string>
             {
                 {"runId", runId},
                 {"round", _round.ToString()},
-                {"drainedCount", (_drained?.Count ?? 0).ToString()}
+                {"drainedCount", (_drained?.Count ?? 0).ToString()},
+                {"consecutiveFailures", _consecutiveFailures.ToString()}
             });
 
-            // 将已 drain 的事件回灌
-            if (_drained != null)
+            // 仅在未超过最大失败次数时回灌事件，否则丢弃防止死循环
+            if (_consecutiveFailures < MaxConsecutiveFailures && _drained != null)
             {
                 foreach (var evt in _drained)
                     _pool.Append(evt);
+                _logger.Message($"[NPCLife.Agent] Events requeued for retry. Cooldown: {RetryCooldown.TotalSeconds}s.");
             }
+            else if (_consecutiveFailures >= MaxConsecutiveFailures)
+            {
+                _logger.Warning($"[NPCLife.Agent] Max failures reached. {_drained?.Count ?? 0} events DISCARDED to prevent infinite loop. Cooldown: {RetryCooldown.TotalSeconds}s.");
+            }
+
             _drained = null;
             _messages = null;
 
