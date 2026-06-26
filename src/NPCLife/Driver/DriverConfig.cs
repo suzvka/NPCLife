@@ -28,13 +28,14 @@ namespace NPCLife.Driver
         /// <summary>剧情编剧专用重要度阈值。</summary>
         public float ScreenwriterImportanceThreshold = 15f;
 
-        // ---- 定时器脉冲（ticks，0 = 禁用） ----
+        // ---- 定时器脉冲（抽象积分阈值，0 = 禁用） ----
 
-        /// <summary>导演定时器脉冲间隔（游戏 ticks）。0 表示禁用。
-        /// 每间隔触发时向导演工作空间事件池注入一个 TimerPulse 事件。</summary>
+        /// <summary>导演定时器脉冲间隔（抽象积分）。0 表示禁用。
+        /// 适配层负责按积分算法累加，达到此阈值时向导演工作空间事件池注入一个 TimerPulse 事件。
+        /// 框架不关心积分来源与单位——只关心"攒够 N 分就触发"。</summary>
         public int DirectorTimerInterval = 0;
 
-        /// <summary>临时编剧定时器脉冲间隔（游戏 ticks）。0 表示禁用。</summary>
+        /// <summary>临时编剧定时器脉冲间隔（抽象积分）。0 表示禁用。</summary>
         public int FreelancerTimerInterval = 0;
 
         // ---- 通用配置 ----
@@ -85,7 +86,8 @@ namespace NPCLife.Driver
         }
 
         /// <summary>
-        /// 获取指定角色的定时器脉冲间隔（ticks）。0 表示禁用。
+        /// 获取指定角色的定时器脉冲间隔（抽象积分）。0 表示禁用。
+        /// 框架不关心此阈值的单位——适配层负责按积分算法换算后累加。
         /// </summary>
         public int GetTimerInterval(Workspace.WorkspaceRole role)
         {
