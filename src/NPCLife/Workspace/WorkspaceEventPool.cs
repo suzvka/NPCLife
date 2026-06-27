@@ -5,6 +5,7 @@ using NPCLife.Framework.Mcp;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace NPCLife.Workspace
 {
@@ -17,6 +18,9 @@ namespace NPCLife.Workspace
     /// - recent 历史缓冲：仅维护在内存中（零持久化），保留近期事件供 Query/GetById 查询。
     ///
     /// 阈值检测在每次 Append 后评估，达到时触发 OnThresholdReached。
+    ///
+    /// 去重机制：基于内容指纹（DefName + Tick + sorted Payload）自动拦截重复事件。
+    /// 同一指纹在 pending 缓冲区内只允许存在一次，DrainPending 后指纹集合清空。
     /// </summary>
     internal class WorkspaceEventPool : IEventLog
     {
@@ -25,6 +29,7 @@ namespace NPCLife.Workspace
         private readonly ICardSerializer _serializer;
 
         private readonly List<IGameEvent> _recent = new List<IGameEvent>();
+        private readonly HashSet<string> _pendingFingerprints = new HashSet<string>();
         private int _totalAppended;
 
         public event Action OnThresholdReached;
@@ -40,6 +45,7 @@ namespace NPCLife.Workspace
 
             if (_ws.EventCache == null) _ws.EventCache = new Dictionary<string, string>();
             if (_ws.PendingEventIds == null) _ws.PendingEventIds = new List<string>();
+            _pendingFingerprints.Clear();
         }
 
         // ================================================================
@@ -49,6 +55,15 @@ namespace NPCLife.Workspace
         public void Append(IGameEvent evt)
         {
             if (evt == null) return;
+
+            // 内容指纹去重：同一指纹在 pending 缓冲区内只允许存在一次
+            string fingerprint = ComputeFingerprint(evt);
+            if (!_pendingFingerprints.Add(fingerprint))
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[NPCLife.EventPool] Duplicate event skipped: fingerprint={fingerprint}");
+                return;
+            }
 
             // 写入 pending 缓冲区（持久化到 WorkspaceState）
             string eventJson = _serializer.SerializeEvent(evt);
@@ -179,7 +194,28 @@ namespace NPCLife.Workspace
                 _ws.PendingEventIds.Clear();
             }
             _ws.PendingImportance = 0;
+            _pendingFingerprints.Clear();
             return events;
+        }
+
+        // ================================================================
+        // 内容指纹计算
+        // ================================================================
+
+        /// <summary>
+        /// 计算事件的内容指纹，用于去重。
+        /// 指纹 = DefName + Tick + sorted Payload KV pairs。
+        /// </summary>
+        private static string ComputeFingerprint(IGameEvent evt)
+        {
+            var sb = new StringBuilder();
+            sb.Append(evt.DefName ?? "").Append('|').Append(evt.Tick);
+            if (evt.Payload != null && evt.Payload.Count > 0)
+            {
+                foreach (var kv in evt.Payload.OrderBy(kv => kv.Key))
+                    sb.Append('|').Append(kv.Key).Append('=').Append(kv.Value ?? "");
+            }
+            return sb.ToString();
         }
     }
 }
