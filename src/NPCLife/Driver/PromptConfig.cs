@@ -13,7 +13,7 @@ namespace NPCLife.Driver
     {
         private static string _cachedDirectorPrompt;
         private static string _cachedScreenwriterPrompt;
-        private static string _cachedFreelancerPrompt;
+        private static string _cachedImproviserPrompt;
 
         /// <summary>导演 Agent 默认系统提示词。</summary>
         public static string DefaultDirectorPrompt =>
@@ -23,9 +23,9 @@ namespace NPCLife.Driver
         public static string DefaultScreenwriterPrompt =>
             _cachedScreenwriterPrompt ?? (_cachedScreenwriterPrompt = LoadPromptResource("NPCLife.Prompts.ScreenwriterPrompt.txt"));
 
-        /// <summary>Freelancer Agent 默认系统提示词（不含动态上下文和台词格式）。</summary>
-        public static string DefaultFreelancerPrompt =>
-            _cachedFreelancerPrompt ?? (_cachedFreelancerPrompt = LoadPromptResource("NPCLife.Prompts.FreelancerPrompt.txt"));
+        /// <summary>即兴编剧 Agent 默认系统提示词（不含动态上下文和台词格式）。</summary>
+        public static string DefaultImproviserPrompt =>
+            _cachedImproviserPrompt ?? (_cachedImproviserPrompt = LoadPromptResource("NPCLife.Prompts.ImproviserPrompt.txt"));
 
         private static string LoadPromptResource(string resourceName)
         {

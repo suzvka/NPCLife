@@ -88,12 +88,12 @@ namespace NPCLife.Framework
             var d = Driver ?? DriverConfig.CreateDefault();
             dw.Prop("directorCountThreshold", d.DirectorCountThreshold);
             dw.Prop("directorImportanceThreshold", d.DirectorImportanceThreshold, "F2");
-            dw.Prop("freelancerCountThreshold", d.FreelancerCountThreshold);
-            dw.Prop("freelancerImportanceThreshold", d.FreelancerImportanceThreshold, "F2");
+            dw.Prop("freelancerCountThreshold", d.ImproviserCountThreshold);
+            dw.Prop("freelancerImportanceThreshold", d.ImproviserImportanceThreshold, "F2");
             dw.Prop("screenwriterCountThreshold", d.ScreenwriterCountThreshold);
             dw.Prop("screenwriterImportanceThreshold", d.ScreenwriterImportanceThreshold, "F2");
             dw.Prop("directorTimerInterval", d.DirectorTimerInterval);
-            dw.Prop("freelancerTimerInterval", d.FreelancerTimerInterval);
+            dw.Prop("freelancerTimerInterval", d.ImproviserTimerInterval);
             dw.Prop("recentHistoryCapacity", d.RecentHistoryCapacity);
             dw.Prop("maxAgentRounds", d.MaxAgentRounds);
             w.PropRaw("driver", dw.Close());
@@ -111,7 +111,7 @@ namespace NPCLife.Framework
             feat.Prop("enableDirectorAgent", Features?.EnableDirectorAgent ?? true);
             feat.Prop("enableMemoryConsolidation", Features?.EnableMemoryConsolidation ?? true);
             feat.Prop("enableKnowledgeBase", Features?.EnableKnowledgeBase ?? true);
-            feat.Prop("enableFreelancerAgent", Features?.EnableFreelancerAgent ?? true);
+            feat.Prop("enableImproviserAgent", Features?.EnableImproviserAgent ?? true);
             feat.Prop("enableRuntimeMetrics", Features?.EnableRuntimeMetrics ?? true);
             w.PropRaw("features", feat.Close());
 
@@ -139,9 +139,9 @@ namespace NPCLife.Framework
                     if (dd.TryGetValue("directorImportanceThreshold", out string dit) && float.TryParse(dit, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float ditv))
                         dc.DirectorImportanceThreshold = ditv;
                     if (dd.TryGetValue("freelancerCountThreshold", out string fct) && int.TryParse(fct, out int fctv))
-                        dc.FreelancerCountThreshold = fctv;
+                        dc.ImproviserCountThreshold = fctv;
                     if (dd.TryGetValue("freelancerImportanceThreshold", out string fit) && float.TryParse(fit, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float fitv))
-                        dc.FreelancerImportanceThreshold = fitv;
+                        dc.ImproviserImportanceThreshold = fitv;
                     if (dd.TryGetValue("screenwriterCountThreshold", out string sct) && int.TryParse(sct, out int sctv))
                         dc.ScreenwriterCountThreshold = sctv;
                     if (dd.TryGetValue("screenwriterImportanceThreshold", out string sit) && float.TryParse(sit, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float sitv))
@@ -149,7 +149,7 @@ namespace NPCLife.Framework
                     if (dd.TryGetValue("directorTimerInterval", out string dti) && int.TryParse(dti, out int dtiv))
                         dc.DirectorTimerInterval = dtiv;
                     if (dd.TryGetValue("freelancerTimerInterval", out string fti) && int.TryParse(fti, out int ftiv))
-                        dc.FreelancerTimerInterval = ftiv;
+                        dc.ImproviserTimerInterval = ftiv;
                     if (dd.TryGetValue("recentHistoryCapacity", out string rhc) && int.TryParse(rhc, out int rhcv))
                         dc.RecentHistoryCapacity = rhcv;
                     if (dd.TryGetValue("maxAgentRounds", out string mar) && int.TryParse(mar, out int marv))
@@ -179,8 +179,8 @@ namespace NPCLife.Framework
                         config.Features.EnableMemoryConsolidation = mcv;
                     if (fd.TryGetValue("enableKnowledgeBase", out string kb) && bool.TryParse(kb, out bool kbv))
                         config.Features.EnableKnowledgeBase = kbv;
-                    if (fd.TryGetValue("enableFreelancerAgent", out string fa) && bool.TryParse(fa, out bool fav))
-                        config.Features.EnableFreelancerAgent = fav;
+                    if (fd.TryGetValue("enableImproviserAgent", out string fa) && bool.TryParse(fa, out bool fav))
+                        config.Features.EnableImproviserAgent = fav;
                     if (fd.TryGetValue("enableRuntimeMetrics", out string rm) && bool.TryParse(rm, out bool rmv))
                         config.Features.EnableRuntimeMetrics = rmv;
                 }
@@ -237,8 +237,8 @@ namespace NPCLife.Framework
         /// <summary>是否启用知识库。</summary>
         public bool EnableKnowledgeBase = true;
 
-        /// <summary>是否启用 Freelancer Agent（临时任务代理）。</summary>
-        public bool EnableFreelancerAgent = true;
+        /// <summary>是否启用即兴编剧 Agent。</summary>
+        public bool EnableImproviserAgent = true;
 
         /// <summary>是否启用运行时度量采集（工具频率、Token 消耗、知识库命中率等）。
         /// 关闭时 MetricsInterceptor 不注册，零开销。</summary>

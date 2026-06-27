@@ -24,8 +24,8 @@ namespace NPCLife.Tests.Driver
                 DirectorImportanceThreshold = 10f,
                 ScreenwriterCountThreshold = 3,
                 ScreenwriterImportanceThreshold = 10f,
-                FreelancerCountThreshold = 3,
-                FreelancerImportanceThreshold = 10f,
+                ImproviserCountThreshold = 3,
+                ImproviserImportanceThreshold = 10f,
                 RecentHistoryCapacity = 20
             };
         }
@@ -345,6 +345,7 @@ namespace NPCLife.Tests.Driver
             public float Importance { get; set; }
             public IReadOnlyList<EventActorRef> Actors { get; set; }
             public string MapHint { get; set; }
+            public string TimeLabel { get; set; }
             public IDictionary<string, string> Payload { get; set; }
         }
     }

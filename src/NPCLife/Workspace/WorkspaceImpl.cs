@@ -87,9 +87,9 @@ namespace NPCLife.Workspace
         {
             if (string.IsNullOrEmpty(text) && type != "pause") return false;
 
-            if (callerRole != WorkspaceRole.Screenwriter && callerRole != WorkspaceRole.Freelancer)
+            if (callerRole != WorkspaceRole.Screenwriter && callerRole != WorkspaceRole.Improviser)
             {
-                _logger?.Warning($"[NPCLife.Workspace] PushLine rejected: caller is {callerRole}, only Screenwriter/Freelancer can push lines.");
+                _logger?.Warning($"[NPCLife.Workspace] PushLine rejected: caller is {callerRole}, only Screenwriter/Improviser can push lines.");
                 return false;
             }
 
@@ -127,7 +127,7 @@ namespace NPCLife.Workspace
         public bool FinishRound(string recap, string outcome, string directorNote,
             IReadOnlyList<string> triggerEventIds, WorkspaceRole callerRole, string callerId = null)
         {
-            if (callerRole != WorkspaceRole.Screenwriter && callerRole != WorkspaceRole.Freelancer)
+            if (callerRole != WorkspaceRole.Screenwriter && callerRole != WorkspaceRole.Improviser)
             {
                 _logger?.Warning($"[NPCLife.Workspace] FinishRound rejected: caller is {callerRole}.");
                 return false;

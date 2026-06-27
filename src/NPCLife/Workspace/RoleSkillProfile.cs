@@ -8,7 +8,7 @@ namespace NPCLife.Workspace
     /// 设计原则：
     /// - Director（导演）：需要全局视图和结构管理能力，不需要叙事细节
     /// - Screenwriter（编剧）：需要完整的角色/环境/关系/事件查询能力来创作叙事
-    /// - Freelancer（临时工）：只需角色和事件的基本查询能力，无剧情上下文
+    /// - Improviser（即兴编剧）：只需角色和事件的基本查询能力，无剧情上下文
     /// </summary>
     public static class RoleSkillProfile
     {
@@ -40,12 +40,12 @@ namespace NPCLife.Workspace
         };
 
         /// <summary>
-        /// Freelancer 预设：轻量查询 + 快速叙事输出。不含关系查询（独立事件不涉及深度社交），
-        /// 不含环境查询（日常对话不需要精确环境数据），不含知识管理（临时工不积累知识）。
+        /// Improviser 预设：轻量查询 + 快速叙事输出。不含关系查询（独立事件不涉及深度社交），
+        /// 不含环境查询（日常对话不需要精确环境数据），不含知识管理（即兴编剧不积累知识）。
         /// </summary>
-        private static readonly string[] FreelancerProfile =
+        private static readonly string[] ImproviserProfile =
         {
-            "workspace_freelancer",
+            "workspace_improviser",
             "character_query",
             "event_query"
         };
@@ -63,8 +63,8 @@ namespace NPCLife.Workspace
                     return DirectorProfile;
                 case WorkspaceRole.Screenwriter:
                     return ScreenwriterProfile;
-                case WorkspaceRole.Freelancer:
-                    return FreelancerProfile;
+                case WorkspaceRole.Improviser:
+                    return ImproviserProfile;
                 default:
                     return new string[0];
             }

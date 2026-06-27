@@ -446,6 +446,7 @@ namespace NPCLife.Tests.Framework
             public float Importance { get; set; } = 1f;
             public IReadOnlyList<EventActorRef> Actors { get; set; } = new List<EventActorRef>();
             public string MapHint { get; set; } = "";
+            public string TimeLabel { get; set; } = "";
             public IDictionary<string, string> Payload { get; set; } = new Dictionary<string, string>();
         }
     }

@@ -10,37 +10,37 @@ using System.Text;
 namespace NPCLife.Workspace
 {
     /// <summary>
-    /// 临时任务代理 (Freelancer) 的 MCP 工具提供者。通过 IMcpHookProvider 接口注入依赖。
+    /// 即兴编剧 (Improviser) 的 MCP 工具提供者。通过 IMcpHookProvider 接口注入依赖。
     ///
     /// 与 WritingMcpProvider 的关键区别：
-    /// - 无 get_workspace（含叙事内容）—— Freelancer 不维护剧情上下文
-    /// - 无 finish_round 的 outcome/directorNote —— Freelancer 不汇报剧情线推进状态
-    /// - push_line / finish_round 使用 WorkspaceRole.Freelancer 身份
+    /// - 无 get_workspace（含叙事内容）—— 即兴编剧不维护剧情上下文
+    /// - 无 finish_round 的 outcome/directorNote —— 即兴编剧不汇报剧情线推进状态
+    /// - push_line / finish_round 使用 WorkspaceRole.Improviser 身份
     /// - route_events 可将不适合的事件推回导演工作空间
     /// </summary>
-    public class FreelancerMcpProvider : IMcpHookProvider
+    public class ImproviserMcpProvider : IMcpHookProvider
     {
         private readonly Func<IWorkspaceManager> _getWorkspaceManager;
         private readonly ILogger _logger;
 
-        public FreelancerMcpProvider(Func<IWorkspaceManager> getWorkspaceManager, ILogger logger)
+        public ImproviserMcpProvider(Func<IWorkspaceManager> getWorkspaceManager, ILogger logger)
         {
             _getWorkspaceManager = getWorkspaceManager ?? throw new ArgumentNullException(nameof(getWorkspaceManager));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public string HookId => "workspace_freelancer";
-        public string HookName => "工作空间(临时任务代理)";
-        public string HookDescription => "处理日常对话、突发独立事件的叙事输出。逐句台词推送，与编剧同构但无剧情上下文。Freelancer 专用。";
+        public string HookId => "workspace_improviser";
+        public string HookName => "工作空间(即兴编剧)";
+        public string HookDescription => "处理日常对话、突发独立事件的叙事输出。逐句台词推送，与编剧同构但无剧情上下文。即兴编剧专用。";
 
         public IReadOnlyList<McpTool> GetTools()
         {
             return new McpTool[]
             {
-                McpTool.FromMethod(typeof(FreelancerMcpProvider).GetMethod(nameof(GetWorkspace)), this),
-                McpTool.FromMethod(typeof(FreelancerMcpProvider).GetMethod(nameof(PushLine)), this),
-                McpTool.FromMethod(typeof(FreelancerMcpProvider).GetMethod(nameof(FinishRound)), this),
-                McpTool.FromMethod(typeof(FreelancerMcpProvider).GetMethod(nameof(RouteEvents)), this),
+                McpTool.FromMethod(typeof(ImproviserMcpProvider).GetMethod(nameof(GetWorkspace)), this),
+                McpTool.FromMethod(typeof(ImproviserMcpProvider).GetMethod(nameof(PushLine)), this),
+                McpTool.FromMethod(typeof(ImproviserMcpProvider).GetMethod(nameof(FinishRound)), this),
+                McpTool.FromMethod(typeof(ImproviserMcpProvider).GetMethod(nameof(RouteEvents)), this),
             };
         }
 
@@ -49,10 +49,10 @@ namespace NPCLife.Workspace
         // ================================================================
 
         /// <summary>
-        /// 获取工作空间轻量信息。Freelancer 不维护剧情上下文，因此只返回元数据和事件摘要，
+        /// 获取工作空间轻量信息。即兴编剧不维护剧情上下文，因此只返回元数据和事件摘要，
         /// 不包含叙事轮次历史。
         /// </summary>
-        [McpTool(Name = "fre_get_workspace",
+        [McpTool(Name = "impr_get_workspace",
                  Description = "获取工作空间轻量信息：元数据、关联角色、标签、待处理事件摘要和轮次统计。不含叙事历史内容。")]
         public string GetWorkspace(
             [McpParam(Description = "工作空间唯一 ID")] string workspaceId)
@@ -69,7 +69,7 @@ namespace NPCLife.Workspace
             }
             catch (Exception e)
             {
-                _logger.Warning($"[NPCLife.FreelancerMcp] fre_get_workspace({workspaceId}) failed: {e.Message}");
+                _logger.Warning($"[NPCLife.ImproviserMcp] impr_get_workspace({workspaceId}) failed: {e.Message}");
                 return "{}";
             }
         }
@@ -79,7 +79,7 @@ namespace NPCLife.Workspace
         // ================================================================
 
         /// <summary>
-        /// 推送单句台词到工作空间。Freelancer 身份调用。
+        /// 推送单句台词到工作空间。即兴编剧身份调用。
         /// </summary>
         [McpTool(Name = "push_line",
                  Description = "推送单句台词到工作空间，立即在游戏内显示。可一次并行调用多个。\n" +
@@ -104,12 +104,12 @@ namespace NPCLife.Workspace
                 if (ws == null) return "{}";
 
                 bool ok = ws.PushLine(speakerId, text, (float)delay, type,
-                                      WorkspaceRole.Freelancer);
+                                      WorkspaceRole.Improviser);
                 return ok ? "{\"ok\":true}" : "{}";
             }
             catch (Exception e)
             {
-                _logger.Warning($"[NPCLife.FreelancerMcp] push_line failed: {e.Message}");
+                _logger.Warning($"[NPCLife.ImproviserMcp] push_line failed: {e.Message}");
                 return "{}";
             }
         }
@@ -119,14 +119,14 @@ namespace NPCLife.Workspace
         // ================================================================
 
         /// <summary>
-        /// 结束本轮叙事。Freelancer 身份调用，无 outcome/directorNote。
+        /// 结束本轮叙事。即兴编剧身份调用，无 outcome/directorNote。
         /// </summary>
         [McpTool(Name = "finish_round",
-                 Description = "结束本轮叙事。Freelancer 不维护剧情上下文，recap 为本轮摘要即可。\n" +
+                 Description = "结束本轮叙事。即兴编剧不维护剧情上下文，recap 为本轮摘要即可。\n" +
                                "在 push_line 推送完所有台词后必须调用。")]
         public string FinishRound(
             [McpParam(Description = "目标工作空间 ID")] string workspaceId,
-            [McpParam(Description = "本轮摘要：Freelancer 对当前事件批次的简要总结。")]
+            [McpParam(Description = "本轮摘要：即兴编剧对当前事件批次的简要总结。")]
             string recap,
             [McpParam(Description = "本轮触发的事件 ID 列表，逗号分隔。仅作溯源。",
                       Required = McpRequired.False)] string triggerEventIds = null)
@@ -141,14 +141,14 @@ namespace NPCLife.Workspace
 
                 var eventIdList = ParseStringList(triggerEventIds);
                 bool ok = ws.FinishRound(recap, null, null, eventIdList,
-                                         WorkspaceRole.Freelancer);
+                                         WorkspaceRole.Improviser);
                 if (!ok) return "{}";
 
                 return SerializeResult(manager.Get(workspaceId));
             }
             catch (Exception e)
             {
-                _logger.Warning($"[NPCLife.FreelancerMcp] finish_round failed: {e.Message}");
+                _logger.Warning($"[NPCLife.ImproviserMcp] finish_round failed: {e.Message}");
                 return "{}";
             }
         }
@@ -158,10 +158,10 @@ namespace NPCLife.Workspace
         // ================================================================
 
         /// <summary>
-        /// 将事件从当前工作空间推送到目标工作空间。Freelancer 可将不适合的事件推回导演。
+        /// 将事件从当前工作空间推送到目标工作空间。即兴编剧可将不适合的事件推回导演。
         /// </summary>
         [McpTool(Name = "route_events",
-                 Description = "将事件从源工作空间的事件池推送到目标工作空间。可附加留言和知识库查询关键词。Freelancer 可将不适合的事件推回导演工作空间。")]
+                 Description = "将事件从源工作空间的事件池推送到目标工作空间。可附加留言和知识库查询关键词。即兴编剧可将不适合的事件推回导演工作空间。")]
         public string RouteEvents(
             [McpParam(Description = "源工作空间 ID（事件从这里取）")] string sourceWorkspaceId,
             [McpParam(Description = "目标工作空间 ID（事件推送到这里）")] string targetWorkspaceId,
@@ -226,18 +226,18 @@ namespace NPCLife.Workspace
             }
             catch (Exception e)
             {
-                _logger.Warning($"[NPCLife.FreelancerMcp] route_events failed: {e.Message}");
+                _logger.Warning($"[NPCLife.ImproviserMcp] route_events failed: {e.Message}");
                 return "{\"success\":false,\"error\":" + JsonHelper.Quote(e.Message) + "}";
             }
         }
 
         // ================================================================
-        // Freelancer 视图序列化（轻量，不含叙事历史）
+        // 即兴编剧视图序列化（轻量，不含叙事历史）
         // ================================================================
 
         /// <summary>
-        /// Freelancer 视图：元数据 + 关联角色 + 标签 + 事件池摘要，不含完整轮次列表。
-        /// Freelancer 不维护剧情上下文，因此无需返回历史叙事。
+        /// 即兴编剧视图：元数据 + 关联角色 + 标签 + 事件池摘要，不含完整轮次列表。
+        /// 即兴编剧不维护剧情上下文，因此无需返回历史叙事。
         /// </summary>
         private string SerializeResult(IWorkspace ws)
         {

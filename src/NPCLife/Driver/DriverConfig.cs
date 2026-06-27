@@ -16,11 +16,11 @@ namespace NPCLife.Driver
         /// <summary>导演专用重要度阈值：pending 事件总重要度达到此值时触发激活。</summary>
         public float DirectorImportanceThreshold = 15f;
 
-        /// <summary>临时编剧专用事件数量阈值。</summary>
-        public int FreelancerCountThreshold = 5;
+        /// <summary>即兴编剧专用事件数量阈值。</summary>
+        public int ImproviserCountThreshold = 5;
 
-        /// <summary>临时编剧专用重要度阈值。</summary>
-        public float FreelancerImportanceThreshold = 15f;
+        /// <summary>即兴编剧专用重要度阈值。</summary>
+        public float ImproviserImportanceThreshold = 15f;
 
         /// <summary>剧情编剧专用事件数量阈值。</summary>
         public int ScreenwriterCountThreshold = 5;
@@ -35,8 +35,8 @@ namespace NPCLife.Driver
         /// 框架不关心积分来源与单位——只关心"攒够 N 分就触发"。</summary>
         public int DirectorTimerInterval = 0;
 
-        /// <summary>临时编剧定时器脉冲间隔（抽象积分）。0 表示禁用。</summary>
-        public int FreelancerTimerInterval = 0;
+        /// <summary>即兴编剧定时器脉冲间隔（抽象积分）。0 表示禁用。</summary>
+        public int ImproviserTimerInterval = 0;
 
         // ---- 通用配置 ----
 
@@ -60,8 +60,8 @@ namespace NPCLife.Driver
                     return DirectorCountThreshold;
                 case Workspace.WorkspaceRole.Screenwriter:
                     return ScreenwriterCountThreshold;
-                case Workspace.WorkspaceRole.Freelancer:
-                    return FreelancerCountThreshold;
+                case Workspace.WorkspaceRole.Improviser:
+                    return ImproviserCountThreshold;
                 default:
                     return DirectorCountThreshold;
             }
@@ -78,8 +78,8 @@ namespace NPCLife.Driver
                     return DirectorImportanceThreshold;
                 case Workspace.WorkspaceRole.Screenwriter:
                     return ScreenwriterImportanceThreshold;
-                case Workspace.WorkspaceRole.Freelancer:
-                    return FreelancerImportanceThreshold;
+                case Workspace.WorkspaceRole.Improviser:
+                    return ImproviserImportanceThreshold;
                 default:
                     return DirectorImportanceThreshold;
             }
@@ -95,8 +95,8 @@ namespace NPCLife.Driver
             {
                 case Workspace.WorkspaceRole.Director:
                     return DirectorTimerInterval;
-                case Workspace.WorkspaceRole.Freelancer:
-                    return FreelancerTimerInterval;
+                case Workspace.WorkspaceRole.Improviser:
+                    return ImproviserTimerInterval;
                 default:
                     return 0; // Screenwriter 不支持定时器
             }
