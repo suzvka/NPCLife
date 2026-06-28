@@ -37,6 +37,7 @@ namespace NPCLife.Tests.Driver
             {
                 EventID = id,
                 DefName = "TestEvent",
+                Keywords = new List<string>(),
                 Tick = tick,
                 Importance = importance,
                 Actors = actors ?? new List<EventActorRef>(),
@@ -53,7 +54,6 @@ namespace NPCLife.Tests.Driver
                 Label = "Test Workspace",
                 Status = WorkspaceStatus.Active,
                 CreatedByRole = WorkspaceRole.Screenwriter,
-                Tags = new List<string> { "RaidArc" },
                 ActiveSkillIds = new List<string> { "workspace_writing" }
             };
         }
@@ -412,11 +412,11 @@ namespace NPCLife.Tests.Driver
         {
             public string EventID { get; set; }
             public string DefName { get; set; }
+            public IReadOnlyList<string> Keywords { get; set; }
             public int Tick { get; set; }
             public float Importance { get; set; }
             public IReadOnlyList<EventActorRef> Actors { get; set; }
             public string MapHint { get; set; }
-            public string TimeLabel { get; set; }
             public IDictionary<string, string> Payload { get; set; }
         }
     }

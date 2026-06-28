@@ -16,9 +16,6 @@ namespace NPCLife.Cards
         /// <summary>事件定义名 (例如 "RaidEnemy", "QuestNode")。</summary>
         string DefName { get; }
 
-        /// <summary>语义标签列表。LLM 消费者直接读字符串，无需枚举解析。</summary>
-        IReadOnlyList<string> Tags { get; }
-
         /// <summary>知识库查询词条名。Agent 激活时收集所有事件的词条名去重后批量查询知识库，命中结果注入提示词。注意区别于 Tags（事件分类标签）。</summary>
         IReadOnlyList<string> Keywords { get; }
 
@@ -54,8 +51,6 @@ namespace NPCLife.Cards
         public string MapHint { get; set; }
         public Dictionary<string, string> Payload { get; set; }
         public Dictionary<string, string> ExtensionFields { get; set; }
-
-        IReadOnlyList<string> IGameEvent.Tags => Tags;
         IReadOnlyList<string> IGameEvent.Keywords => Keywords;
         IReadOnlyList<EventActorRef> IGameEvent.Actors => Actors;
         IDictionary<string, string> IGameEvent.Payload => Payload;
@@ -68,7 +63,6 @@ namespace NPCLife.Cards
             {
                 EventID = source.EventID,
                 DefName = source.DefName,
-                Tags = source.Tags != null ? new List<string>(source.Tags) : new List<string>(),
                 Keywords = source.Keywords != null ? new List<string>(source.Keywords) : new List<string>(),
                 Tick = source.Tick,
                 Importance = source.Importance,
