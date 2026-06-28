@@ -88,7 +88,7 @@ namespace NPCLife.Workspace
         // CRUD
         // ================================================================
 
-        public IWorkspace Create(string label, List<string> colonistIds, List<string> tags, WorkspaceRole createdByRole)
+        public IWorkspace Create(string label, List<string> colonistIds, WorkspaceRole createdByRole)
         {
             string now = Now();
 
@@ -101,7 +101,6 @@ namespace NPCLife.Workspace
                 ParentId = null,
                 MergedFromIds = new List<string>(),
                 ColonistIds = colonistIds ?? new List<string>(),
-                Tags = tags ?? new List<string>(),
                 Rounds = new List<WorkspaceRound>(),
                 CurrentRecap = "",
                 CreatedAt = now,
@@ -234,7 +233,6 @@ namespace NPCLife.Workspace
                 ParentId = parentId,
                 MergedFromIds = new List<string>(),
                 ColonistIds = new List<string>(parent.ColonistIds ?? new List<string>()),
-                Tags = new List<string>(parent.Tags ?? new List<string>()),
                 Rounds = copiedRounds,
                 CurrentRecap = branchRecap ?? "",
                 CreatedAt = now,
@@ -335,17 +333,6 @@ namespace NPCLife.Workspace
                 {
                     if (!target.ColonistIds.Contains(cid))
                         target.ColonistIds.Add(cid);
-                }
-            }
-
-            if (source.Tags != null)
-            {
-                if (target.Tags == null)
-                    target.Tags = new List<string>();
-                foreach (var tag in source.Tags)
-                {
-                    if (!target.Tags.Contains(tag))
-                        target.Tags.Add(tag);
                 }
             }
 
@@ -473,8 +460,6 @@ namespace NPCLife.Workspace
                 w.Array("mergedFromIds", ws.MergedFromIds);
             if (ws.ColonistIds != null && ws.ColonistIds.Count > 0)
                 w.Array("colonistIds", ws.ColonistIds);
-            if (ws.Tags != null && ws.Tags.Count > 0)
-                w.Array("tags", ws.Tags);
             if (!string.IsNullOrEmpty(ws.CurrentRecap))
                 w.Prop("currentRecap", ws.CurrentRecap);
             if (ws.ActiveSkillIds != null && ws.ActiveSkillIds.Count > 0)
@@ -534,7 +519,6 @@ namespace NPCLife.Workspace
                 ParentId = data.TryGetValue("parentId", out v) ? (string.IsNullOrEmpty(v) ? null : v) : null,
                 MergedFromIds = DeserializeStringList(data.TryGetValue("mergedFromIds", out v) ? v : null),
                 ColonistIds = DeserializeStringList(data.TryGetValue("colonistIds", out v) ? v : null),
-                Tags = DeserializeStringList(data.TryGetValue("tags", out v) ? v : null),
                 CurrentRecap = data.TryGetValue("currentRecap", out v) ? v : "",
                 Rounds = DeserializeRounds(data.TryGetValue("rounds", out v) ? v : null),
                 CreatedAt = data.TryGetValue("createdAt", out v) ? v : "",

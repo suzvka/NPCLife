@@ -114,10 +114,6 @@ namespace NPCLife.Workspace
 
             IEnumerable<IGameEvent> result = _recent;
 
-            if (query.TagsAny != null && query.TagsAny.Count > 0)
-                result = result.Where(e => e.Tags != null && query.TagsAny.Any(t => e.Tags.Contains(t)));
-            if (query.TagsAll != null && query.TagsAll.Count > 0)
-                result = result.Where(e => e.Tags != null && query.TagsAll.All(t => e.Tags.Contains(t)));
             if (query.SinceTick.HasValue)
                 result = result.Where(e => e.Tick >= query.SinceTick.Value);
             if (query.UntilTick.HasValue)
@@ -143,8 +139,6 @@ namespace NPCLife.Workspace
             if (query == null) return _recent.Count;
             var q = new EventQuery
             {
-                TagsAny = query.TagsAny,
-                TagsAll = query.TagsAll,
                 SinceTick = query.SinceTick,
                 UntilTick = query.UntilTick,
                 ActorId = query.ActorId,

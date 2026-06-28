@@ -56,9 +56,6 @@ namespace NPCLife.Core
         /// <summary>列出内部缓存中的全部词条。</summary>
         public IReadOnlyList<KnowledgeEntry> ListAll() => _cache.ListAll();
 
-        /// <summary>按语义标签筛选内部缓存中的词条。</summary>
-        public IReadOnlyList<KnowledgeEntry> ListByTags(IReadOnlyList<string> tags) => _cache.ListByTags(tags);
-
         /// <summary>按前缀列举内部缓存中的词条。</summary>
         public IReadOnlyList<KnowledgeEntry> ListByPrefix(string prefix) => _cache.ListByPrefix(prefix);
     }

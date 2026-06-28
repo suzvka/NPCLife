@@ -19,7 +19,6 @@ namespace NPCLife.Workspace
         string ParentId { get; }
         IReadOnlyList<string> MergedFromIds { get; }
         IReadOnlyList<string> ColonistIds { get; }
-        IReadOnlyList<string> Tags { get; }
         IReadOnlyList<WorkspaceRound> Rounds { get; }
         string CurrentRecap { get; }
         string CreatedAt { get; }

@@ -31,13 +31,12 @@ namespace NPCLife.Tests.Driver
         }
 
         private static IGameEvent MakeEvent(string id, float importance, int tick = 0,
-            IReadOnlyList<string> tags = null, IReadOnlyList<EventActorRef> actors = null)
+            IReadOnlyList<EventActorRef> actors = null)
         {
             return new TestGameEvent
             {
                 EventID = id,
                 DefName = "TestEvent",
-                Tags = tags ?? new List<string> { "Test" },
                 Tick = tick,
                 Importance = importance,
                 Actors = actors ?? new List<EventActorRef>(),
@@ -55,7 +54,6 @@ namespace NPCLife.Tests.Driver
                 Status = WorkspaceStatus.Active,
                 CreatedByRole = WorkspaceRole.Screenwriter,
                 ColonistIds = new List<string> { "pawn_001" },
-                Tags = new List<string> { "RaidArc" },
                 ActiveSkillIds = new List<string> { "workspace_writing" }
             };
         }
@@ -414,8 +412,6 @@ namespace NPCLife.Tests.Driver
         {
             public string EventID { get; set; }
             public string DefName { get; set; }
-            public IReadOnlyList<string> Tags { get; set; }
-            public IReadOnlyList<string> Keywords { get; set; }
             public int Tick { get; set; }
             public float Importance { get; set; }
             public IReadOnlyList<EventActorRef> Actors { get; set; }

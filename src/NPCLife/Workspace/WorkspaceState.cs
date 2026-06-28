@@ -114,9 +114,6 @@ namespace NPCLife.Workspace
         /// <summary>关联的角色 ID 列表。</summary>
         public List<string> ColonistIds;
 
-        /// <summary>语义标签（如 "CombatAftermath", "RomanceArc"）。</summary>
-        public List<string> Tags;
-
         /// <summary>Agent 写作日志：按轮次的 recap + narrative 列表。</summary>
         public List<WorkspaceRound> Rounds;
 

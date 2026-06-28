@@ -15,3 +15,8 @@
 事件路由：
 - 每条事件都有 eventId，使用 route_events 将事件推送到对应工作空间
 - 如无合适的工作空间，先 create_workspace 再用 route_events
+
+知识库使用：
+- 知识库是编剧在叙事过程中积累的术语释义副产物
+- 你可用 lookup_term 查询已有释义辅助路由决策，但不应使用 learn_term 创建词条——那是编剧的职责
+- 事件内容已包含 DefName、Payload 等结构化数据，可直接判断事件类型，无需依赖分类标签

@@ -24,9 +24,6 @@ namespace NPCLife.Framework.Mcp
             var w = new JsonWriter(512);
             w.Prop("eventId", evt.EventID);
             w.Prop("defName", evt.DefName);
-            w.PropRaw("tags", SerializeStringList(evt.Tags));
-            if (evt.Keywords != null && evt.Keywords.Count > 0)
-                w.PropRaw("keywords", SerializeStringList(evt.Keywords));
             // tick 不输出给 LLM，仅保留为内部实现细节
             if (!string.IsNullOrEmpty(evt.TimeLabel))
                 w.Prop("time", evt.TimeLabel);
@@ -79,8 +76,6 @@ namespace NPCLife.Framework.Mcp
             {
                 EventID = dict.TryGetValue("eventId", out var v) ? v : "",
                 DefName = dict.TryGetValue("defName", out v) ? v : "",
-                Tags = DeserializeTagList(dict.TryGetValue("tags", out v) ? v : "[]"),
-                Keywords = DeserializeTagList(dict.TryGetValue("keywords", out v) ? v : "[]"),
                 Tick = dict.TryGetValue("tick", out v) && int.TryParse(v, out var tick) ? tick : 0,
                 TimeLabel = dict.TryGetValue("timeLabel", out v) ? v : "",
                 Importance = dict.TryGetValue("importance", out v) && float.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var imp) ? imp : 0f,
@@ -348,11 +343,6 @@ namespace NPCLife.Framework.Mcp
         // ================================================================
         // 内部辅助
         // ================================================================
-
-        private static List<string> DeserializeTagList(string json)
-        {
-            return JsonParser.ParseStringArray(json);
-        }
 
         private static List<EventActorRef> DeserializeActors(string json)
         {

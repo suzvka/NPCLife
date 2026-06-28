@@ -29,8 +29,7 @@ namespace NPCLife.Tests.Core
             {
                 Term = term,
                 Definition = definition,
-                Source = source,
-                ContextTags = new List<string>()
+                Source = source
             };
         }
 
@@ -138,26 +137,6 @@ namespace NPCLife.Tests.Core
         }
 
         [Fact]
-        public void ListByTags_DelegatesToCache()
-        {
-            var cache = new FakeKnowledgeBase();
-            cache.Store(new KnowledgeEntry
-            {
-                Term = "Sword", Definition = "weapon", Source = "Test",
-                ContextTags = new List<string> { "Weapon" }
-            });
-            cache.Store(new KnowledgeEntry
-            {
-                Term = "Meal", Definition = "food", Source = "Test",
-                ContextTags = new List<string> { "Food" }
-            });
-            var svc = Create(cache);
-
-            var weapons = svc.ListByTags(new List<string> { "Weapon" });
-            Assert.Single(weapons);
-        }
-
-        [Fact]
         public void ListByPrefix_DelegatesToCache()
         {
             var cache = new FakeKnowledgeBase();
@@ -189,7 +168,6 @@ namespace NPCLife.Tests.Core
             public void Store(KnowledgeEntry entry)
             {
                 if (entry?.Term == null) return;
-                if (entry.ContextTags == null) entry.ContextTags = new List<string>();
                 _data[entry.Term] = entry;
             }
 
@@ -199,19 +177,6 @@ namespace NPCLife.Tests.Core
             }
 
             public IReadOnlyList<KnowledgeEntry> ListAll() => new List<KnowledgeEntry>(_data.Values);
-            public IReadOnlyList<KnowledgeEntry> ListByTags(IReadOnlyList<string> tags)
-            {
-                if (tags == null || tags.Count == 0) return ListAll();
-                var result = new List<KnowledgeEntry>();
-                foreach (var e in _data.Values)
-                {
-                    if (e.ContextTags != null)
-                        foreach (var t in tags)
-                            if (e.ContextTags.Contains(t))
-                            { result.Add(e); break; }
-                }
-                return result;
-            }
             public IReadOnlyList<KnowledgeEntry> ListByPrefix(string prefix)
             {
                 if (string.IsNullOrEmpty(prefix)) return ListAll();

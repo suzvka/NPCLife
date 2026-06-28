@@ -52,7 +52,6 @@ namespace NPCLife.Agent
         private readonly ICardSerializer _serializer;
         private readonly Action _unsubscribe; // 取消事件订阅的委托
         private readonly Func<string> _contextProvider;
-        private readonly IKnowledgeService _knowledgeService;
         private readonly float _temperature;
         private readonly List<(string Cred, string Model)> _modelRefs;
         private readonly string _currentModelJson;
@@ -87,7 +86,6 @@ namespace NPCLife.Agent
         /// <param name="logger">日志接口。</param>
         /// <param name="serializer">Card 序列化器（可选，默认使用 CardSerializer.Default）。</param>
         /// <param name="contextProvider">动态上下文提供者（可选）。每次激活时调用，返回值追加到用户消息末尾。</param>
-        /// <param name="knowledgeService">知识服务（可选）。Agent 激活时收集事件关键词去重后批量查询，命中结果注入提示词。第三方可实现 IKnowledgeService 自定义架构。</param>
         /// <param name="temperature">LLM 采样温度（0~2），默认 0.7。</param>
         /// <param name="modelAlias">关联的模型代号（如 "primary"），用于从 Registry 解析凭证。默认 "primary"。</param>
         public AgentLoop(
@@ -100,7 +98,6 @@ namespace NPCLife.Agent
             ILogger logger,
             ICardSerializer serializer = null,
             Func<string> contextProvider = null,
-            IKnowledgeService knowledgeService = null,
             float temperature = 0.7f,
             string modelRefsJson = null,
             string currentModel = null)
@@ -114,7 +111,6 @@ namespace NPCLife.Agent
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _serializer = serializer ?? CardSerializer.Default;
             _contextProvider = contextProvider;
-            _knowledgeService = knowledgeService;
             _temperature = temperature;
             _modelRefs = ParseModelRefs(modelRefsJson);
             _currentModelJson = currentModel;
@@ -514,73 +510,6 @@ namespace NPCLife.Agent
             sb.AppendLine("## 待处理事件");
             sb.AppendLine();
             sb.AppendLine(_serializer.SerializeEventList(events));
-
-            // 收集所有事件的关键词，去重后批量查询知识服务
-            bool hasKnowledgeSkill = _skillIds != null &&
-                Array.IndexOf(_skillIds, "knowledge_management") >= 0;
-
-            if (_knowledgeService != null)
-            {
-                var allKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var evt in events)
-                {
-                    if (evt.Keywords != null)
-                    {
-                        foreach (var kw in evt.Keywords)
-                        {
-                            if (!string.IsNullOrEmpty(kw))
-                                allKeywords.Add(kw);
-                        }
-                    }
-                }
-
-                if (allKeywords.Count > 0)
-                {
-                    var hits = new List<KnowledgeEntry>();
-                    var missed = new List<string>();
-                    foreach (var kw in allKeywords)
-                    {
-                        var results = _knowledgeService.Lookup(kw);
-                        if (results != null && results.Count > 0)
-                            hits.AddRange(results);
-                        else
-                            missed.Add(kw);
-                    }
-
-                    // 先报告缺失词条，引导 LLM 在叙事前补全
-                    if (missed.Count > 0 && hasKnowledgeSkill)
-                    {
-                        sb.AppendLine();
-                        sb.AppendLine("## 缺失知识条目");
-                        sb.AppendLine();
-                        sb.AppendLine("以下关键词在当前知识库中没有记录。在开始叙事工作之前，请先使用 learn_term 逐一为它们创建知识条目。");
-                        sb.AppendLine("你可以先用 lookup_term 查询相似词条、用 character_query / event_query 了解关联背景来辅助推断释义。");
-                        sb.AppendLine();
-                        foreach (var kw in missed)
-                        {
-                            sb.Append("- **");
-                            sb.Append(kw);
-                            sb.AppendLine("**");
-                        }
-                    }
-
-                    if (hits.Count > 0)
-                    {
-                        sb.AppendLine();
-                        sb.AppendLine("## 相关知识");
-                        sb.AppendLine();
-                        foreach (var entry in hits)
-                        {
-                            sb.Append("- **");
-                            sb.Append(entry.Term ?? "");
-                            sb.Append("** [");
-                            sb.Append(entry.Source ?? "unknown");
-                            sb.Append("]: ");
-                            sb.AppendLine(entry.Definition ?? "");
-                        }
-                    }
-                }
-            }
 
             sb.AppendLine();
             sb.AppendLine("请审查事件列表，挑选值得发展的事件，使用 create_workspace / branch_workspace 等工具创建剧情线工作空间。");

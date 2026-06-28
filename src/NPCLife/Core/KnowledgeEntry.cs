@@ -17,7 +17,5 @@ namespace NPCLife.Core
         /// <summary>知识来源名称（如 "LLM"、"GameDef"、"AgentDeduction"、"Wiki"、"RAG"）。</summary>
         public string Source;
 
-        /// <summary>关联的语义标签（如 Combat、Faction、Lore）。用于按领域过滤。</summary>
-        public List<string> ContextTags;
     }
 }

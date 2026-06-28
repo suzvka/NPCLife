@@ -20,15 +20,13 @@ namespace NPCLife.Tests.Core
 
         private static KnowledgeEntry MakeEntry(
             string term, string definition = "def",
-            string source = "Test",
-            params string[] tags)
+            string source = "Test")
         {
             return new KnowledgeEntry
             {
                 Term = term,
                 Definition = definition,
-                Source = source,
-                ContextTags = tags.Length > 0 ? new List<string>(tags) : new List<string>()
+                Source = source
             };
         }
 
@@ -99,18 +97,6 @@ namespace NPCLife.Tests.Core
             Assert.True(kb.TryLookup("Raid", out var entry));
             Assert.Equal("new definition", entry.Definition);
             Assert.Single(kb.ListAll());
-        }
-
-        [Fact]
-        public void Store_NullContextTags_AutoInitialized()
-        {
-            var kb = Create();
-            var entry = MakeEntry("Raid");
-            entry.ContextTags = null;
-            kb.Store(entry);
-
-            Assert.True(kb.TryLookup("Raid", out var stored));
-            Assert.NotNull(stored.ContextTags);
         }
 
         // ================================================================
@@ -192,47 +178,6 @@ namespace NPCLife.Tests.Core
         }
 
         // ================================================================
-        // ListByTags
-        // ================================================================
-
-        [Fact]
-        public void ListByTags_NullOrEmpty_ReturnsAll()
-        {
-            var kb = Create();
-            kb.Store(MakeEntry("A"));
-            kb.Store(MakeEntry("B"));
-
-            Assert.Equal(2, kb.ListByTags(null).Count);
-            Assert.Equal(2, kb.ListByTags(new List<string>()).Count);
-        }
-
-        [Fact]
-        public void ListByTags_AnyMatch_ReturnsFiltered()
-        {
-            var kb = Create();
-            kb.Store(MakeEntry("Sword", "def", "Test", "Weapon", "Melee"));
-            kb.Store(MakeEntry("Bow", "def", "Test", "Weapon", "Ranged"));
-            kb.Store(MakeEntry("Meal", "def", "Test", "Food"));
-
-            var weapons = kb.ListByTags(new List<string> { "Weapon" });
-            Assert.Equal(2, weapons.Count);
-
-            var food = kb.ListByTags(new List<string> { "Food" });
-            Assert.Single(food);
-            Assert.Equal("Meal", food[0].Term);
-        }
-
-        [Fact]
-        public void ListByTags_CaseInsensitive()
-        {
-            var kb = Create();
-            kb.Store(MakeEntry("Sword", "def", "Test", "Weapon"));
-
-            var results = kb.ListByTags(new List<string> { "weapon" });
-            Assert.Single(results);
-        }
-
-        // ================================================================
         // Persistence Round-trip
         // ================================================================
 
@@ -244,8 +189,8 @@ namespace NPCLife.Tests.Core
 
             // Write
             var kb1 = new BuiltInKnowledgeBase(store, logger);
-            kb1.Store(MakeEntry("Raid", "An attack", "GameDef", "Combat"));
-            kb1.Store(MakeEntry("Blight", "Crop disease", "LLM", "Agriculture"));
+            kb1.Store(MakeEntry("Raid", "An attack", "GameDef"));
+            kb1.Store(MakeEntry("Blight", "Crop disease", "LLM"));
 
             // Read back from same store
             var kb2 = new BuiltInKnowledgeBase(store, logger);
@@ -254,7 +199,6 @@ namespace NPCLife.Tests.Core
             Assert.True(kb2.TryLookup("Raid", out var raid));
             Assert.Equal("An attack", raid.Definition);
             Assert.Equal("GameDef", raid.Source);
-            Assert.Contains("Combat", raid.ContextTags);
 
             Assert.True(kb2.TryLookup("Blight", out var blight));
             Assert.Equal("Crop disease", blight.Definition);

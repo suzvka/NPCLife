@@ -161,15 +161,13 @@ namespace NPCLife.Workspace
         /// 将事件从当前工作空间推送到目标工作空间。即兴编剧可将不适合的事件推回导演。
         /// </summary>
         [McpTool(Name = "route_events",
-                 Description = "将事件从源工作空间的事件池推送到目标工作空间。可附加留言和知识库查询关键词。即兴编剧可将不适合的事件推回导演工作空间。")]
+                 Description = "将事件从源工作空间的事件池推送到目标工作空间。可附加留言。即兴编剧可将不适合的事件推回导演工作空间。")]
         public string RouteEvents(
             [McpParam(Description = "源工作空间 ID（事件从这里取）")] string sourceWorkspaceId,
             [McpParam(Description = "目标工作空间 ID（事件推送到这里）")] string targetWorkspaceId,
             [McpParam(Description = "要路由的事件 ID，多个用逗号分隔")] string eventIds,
             [McpParam(Description = "可选留言：附带给目标工作空间的备注",
-                      Required = McpRequired.False)] string message = null,
-            [McpParam(Description = "可选知识库查询关键词，逗号分隔。Agent 激活时自动收集所有事件的关键词去重后查询知识库，命中结果注入提示词。",
-                      Required = McpRequired.False)] string keywords = null)
+                      Required = McpRequired.False)] string message = null)
         {
             try
             {
@@ -185,29 +183,12 @@ namespace NPCLife.Workspace
                 if (sourceWs == null)
                     return "{\"success\":false,\"error\":\"source workspace not found\"}";
 
-                var keywordList = ParseStringList(keywords);
-
                 var events = new List<IGameEvent>();
                 foreach (var id in ids)
                 {
                     var evt = sourceWs.EventPool?.GetById(id);
                     if (evt != null)
-                    {
-                        if (keywordList.Count > 0)
-                        {
-                            var copy = EventCardData.From(evt);
-                            foreach (var kw in keywordList)
-                            {
-                                if (!copy.Keywords.Contains(kw))
-                                    copy.Keywords.Add(kw);
-                            }
-                            events.Add(copy);
-                        }
-                        else
-                        {
-                            events.Add(evt);
-                        }
-                    }
+                        events.Add(evt);
                 }
 
                 int routed = 0;
@@ -249,8 +230,6 @@ namespace NPCLife.Workspace
             w.Prop("status", ws.Status.ToString());
             if (ws.ColonistIds != null && ws.ColonistIds.Count > 0)
                 w.Array("colonistIds", ws.ColonistIds);
-            if (ws.Tags != null && ws.Tags.Count > 0)
-                w.Array("tags", ws.Tags);
             w.Prop("roundCount", ws.Rounds?.Count ?? 0);
             w.Prop("pendingEventCount", ws.EventPool?.PendingCount ?? 0);
             w.Prop("lastActivityAt", ws.LastActivityAt ?? "");

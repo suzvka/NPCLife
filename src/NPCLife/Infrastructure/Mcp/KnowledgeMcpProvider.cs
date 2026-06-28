@@ -83,9 +83,7 @@ namespace NPCLife.Infrastructure.Mcp
             [McpParam(Description = "词条名")] string term,
             [McpParam(Description = "释义文本")] string definition,
             [McpParam(Description = "来源名，如 LLM / AgentDeduction / Wiki，默认 LLM",
-                      Required = McpRequired.False)] string source = "LLM",
-            [McpParam(Description = "关联语义标签，逗号分隔，如 Combat,Faction,Lore",
-                      Required = McpRequired.False)] string tags = null)
+                      Required = McpRequired.False)] string source = "LLM")
         {
             try
             {
@@ -100,8 +98,7 @@ namespace NPCLife.Infrastructure.Mcp
                 {
                     Term = term.Trim(),
                     Definition = definition ?? "",
-                    Source = source ?? "LLM",
-                    ContextTags = ParseTagList(tags)
+                    Source = source ?? "LLM"
                 };
 
                 svc.Store(entry);
@@ -124,12 +121,10 @@ namespace NPCLife.Infrastructure.Mcp
         /// 列出已知词条，支持前缀和标签过滤。
         /// </summary>
         [McpTool(Name = "list_known_terms",
-                 Description = "列出内部知识库中的已知词条摘要。支持前缀过滤和语义标签过滤。")]
+                 Description = "列出内部知识库中的已知词条摘要。支持前缀过滤。")]
         public string ListKnownTerms(
             [McpParam(Description = "前缀过滤，如 '心灵'。留空=全部",
                       Required = McpRequired.False)] string prefix = null,
-            [McpParam(Description = "语义标签过滤，逗号分隔，如 Combat,Lore。留空=不限",
-                      Required = McpRequired.False)] string tags = null,
             [McpParam(Description = "最大返回数，默认 30")] int limit = 30)
         {
             try
@@ -139,12 +134,7 @@ namespace NPCLife.Infrastructure.Mcp
 
                 IReadOnlyList<KnowledgeEntry> entries;
 
-                if (!string.IsNullOrEmpty(tags))
-                {
-                    var tagList = ParseTagList(tags);
-                    entries = svc.ListByTags(tagList);
-                }
-                else if (!string.IsNullOrEmpty(prefix))
+                if (!string.IsNullOrEmpty(prefix))
                 {
                     entries = svc.ListByPrefix(prefix);
                 }
@@ -261,8 +251,6 @@ namespace NPCLife.Infrastructure.Mcp
             w.Prop("term", entry.Term ?? "");
             w.Prop("definition", entry.Definition ?? "");
             w.Prop("source", entry.Source ?? "");
-            if (entry.ContextTags != null && entry.ContextTags.Count > 0)
-                w.Array("contextTags", entry.ContextTags);
         }
 
         private static string SerializeTermSummaryList(IReadOnlyList<KnowledgeEntry> entries)
@@ -285,8 +273,6 @@ namespace NPCLife.Infrastructure.Mcp
             w.Prop("term", entry.Term ?? "");
             w.Prop("definitionPreview", Truncate(entry.Definition ?? "", 120));
             w.Prop("source", entry.Source ?? "");
-            if (entry.ContextTags != null && entry.ContextTags.Count > 0)
-                w.Array("contextTags", entry.ContextTags);
             return w.Close();
         }
 
@@ -313,8 +299,6 @@ namespace NPCLife.Infrastructure.Mcp
             w.Prop("hit", true);
             w.Prop("term", entry.Term ?? "");
             w.Prop("source", entry.Source ?? "");
-            if (entry.ContextTags != null && entry.ContextTags.Count > 0)
-                w.Array("contextTags", entry.ContextTags);
             return w.Close();
         }
 
@@ -329,15 +313,6 @@ namespace NPCLife.Infrastructure.Mcp
         // ================================================================
         // 辅助
         // ================================================================
-
-        private static List<string> ParseTagList(string input)
-        {
-            if (string.IsNullOrEmpty(input)) return new List<string>();
-            return input.Split(new char[] { ',' })
-                .Select(s => s.Trim())
-                .Where(s => s.Length > 0)
-                .ToList();
-        }
 
         private static string Truncate(string value, int maxLength)
         {

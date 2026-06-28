@@ -6,7 +6,6 @@ namespace NPCLife.Cards
     /// <summary>
     /// 游戏事件的标准接口。所有具体事件实现必须实现此接口。
     /// 纯 DTO 接口，由宿主注入实现。
-    /// 标签示例：["Combat", "Social", "Exploration"] — 首标签为具体类型，后续为领域/子类型。
     /// </summary>
     public interface IGameEvent
     {
@@ -15,12 +14,6 @@ namespace NPCLife.Cards
 
         /// <summary>事件定义名 (例如 "RaidEnemy", "QuestNode")。</summary>
         string DefName { get; }
-
-        /// <summary>语义标签列表。LLM 消费者直接读字符串，无需枚举解析。</summary>
-        IReadOnlyList<string> Tags { get; }
-
-        /// <summary>知识库查询关键词。Agent 激活时收集所有事件的关键词去重后批量查询知识库，命中结果注入提示词。</summary>
-        IReadOnlyList<string> Keywords { get; }
 
         /// <summary>发生时刻 (游戏 tick)。</summary>
         int Tick { get; }
@@ -49,8 +42,6 @@ namespace NPCLife.Cards
     {
         public string EventID { get; set; }
         public string DefName { get; set; }
-        public List<string> Tags { get; set; }
-        public List<string> Keywords { get; set; }
         public int Tick { get; set; }
         public string TimeLabel { get; set; }
         public float Importance { get; set; }
@@ -59,8 +50,6 @@ namespace NPCLife.Cards
         public Dictionary<string, string> Payload { get; set; }
         public Dictionary<string, string> ExtensionFields { get; set; }
 
-        IReadOnlyList<string> IGameEvent.Tags => Tags;
-        IReadOnlyList<string> IGameEvent.Keywords => Keywords;
         IReadOnlyList<EventActorRef> IGameEvent.Actors => Actors;
         IDictionary<string, string> IGameEvent.Payload => Payload;
 
@@ -72,8 +61,6 @@ namespace NPCLife.Cards
             {
                 EventID = source.EventID,
                 DefName = source.DefName,
-                Tags = source.Tags != null ? new List<string>(source.Tags) : new List<string>(),
-                Keywords = source.Keywords != null ? new List<string>(source.Keywords) : new List<string>(),
                 Tick = source.Tick,
                 TimeLabel = source.TimeLabel,
                 Importance = source.Importance,
