@@ -172,6 +172,8 @@ namespace NPCLife.Workspace
 
         public int PendingCount => _ws.PendingEventIds?.Count ?? 0;
 
+        public bool IsPendingEmpty => PendingCount == 0;
+
         public float TotalImportance => _ws.PendingImportance;
 
         public IReadOnlyList<IGameEvent> DrainPending()

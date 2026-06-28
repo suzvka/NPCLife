@@ -30,7 +30,7 @@ namespace NPCLife.Agent
     }
 
     /// <summary>
-    /// Agent 循环。纯逻辑组件，零游戏引擎依赖。
+    /// Agent 循环。
     /// 通过订阅 IEventLog.OnThresholdReached 被动激活。
     ///
     /// 生命周期：
@@ -355,6 +355,11 @@ namespace NPCLife.Agent
                 _currentRunId = null;
                 _state = AgentRunState.Idle;
                 _gate.Release();
+
+                // 兜底：执行期间可能有事件到达但 OnThresholdReached 通知被丢弃，
+                // 主动检查并重试激活。释放 gate 后再检查，确保 OnPoolChanged 能获取信号量。
+                if (_pool.PendingCount > 0)
+                    OnPoolChanged();
             }
         }
 

@@ -39,6 +39,13 @@ namespace NPCLife.Core
         /// <summary>pending 缓冲区中的事件数。</summary>
         int PendingCount { get; }
 
+        /// <summary>
+        /// pending 缓冲区是否为空。
+        /// 适配层在注入定时器脉冲（TimerPulse）前应检查此项：
+        /// 当缓冲区非空时跳过脉冲注入，避免事件堆积和通知丢失。
+        /// </summary>
+        bool IsPendingEmpty { get; }
+
         /// <summary>pending 缓冲区中所有事件的重要度总和。</summary>
         float TotalImportance { get; }
 
