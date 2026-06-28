@@ -24,25 +24,24 @@ namespace NPCLife.Tests.Driver
                 DirectorImportanceThreshold = 10f,
                 ScreenwriterCountThreshold = 3,
                 ScreenwriterImportanceThreshold = 10f,
-                FreelancerCountThreshold = 3,
-                FreelancerImportanceThreshold = 10f,
+                ImproviserCountThreshold = 3,
+                ImproviserImportanceThreshold = 10f,
                 RecentHistoryCapacity = 20
             };
         }
 
         private static IGameEvent MakeEvent(string id, float importance, int tick = 0,
-            IReadOnlyList<string> tags = null, IReadOnlyList<EventActorRef> actors = null)
+            IReadOnlyList<EventActorRef> actors = null)
         {
             return new TestGameEvent
             {
                 EventID = id,
                 DefName = "TestEvent",
-                Tags = tags ?? new List<string> { "Test" },
                 Tick = tick,
                 Importance = importance,
                 Actors = actors ?? new List<EventActorRef>(),
                 MapHint = "",
-                Payload = new Dictionary<string, string>()
+                Payload = new Dictionary<string, string> { { "id", id } }
             };
         }
 
@@ -331,6 +330,81 @@ namespace NPCLife.Tests.Driver
         }
 
         // ================================================================
+        // 内容指纹去重
+        // ================================================================
+
+        [Fact]
+        public void Append_DuplicateFingerprint_IsSkipped()
+        {
+            var pool = CreatePool();
+
+            // 两个指纹完全相同的事件（同 DefName、同 Tick、同 Payload）
+            var evt1 = new TestGameEvent
+            {
+                EventID = "dup1", DefName = "Raid", Tick = 100, Importance = 3f,
+                Actors = new List<EventActorRef>(), MapHint = "", Payload = new Dictionary<string, string> { { "faction", "pirates" } }
+            };
+            var evt2 = new TestGameEvent
+            {
+                EventID = "dup2", DefName = "Raid", Tick = 100, Importance = 3f,
+                Actors = new List<EventActorRef>(), MapHint = "", Payload = new Dictionary<string, string> { { "faction", "pirates" } }
+            };
+
+            pool.Append(evt1);
+            pool.Append(evt2);
+
+            // 只入池一次
+            Assert.Equal(1, pool.PendingCount);
+            Assert.Equal(3f, pool.TotalImportance);
+        }
+
+        [Fact]
+        public void Append_DifferentFingerprint_BothAccepted()
+        {
+            var pool = CreatePool();
+
+            // 不同 DefName
+            var evt1 = new TestGameEvent
+            {
+                EventID = "e1", DefName = "Raid", Tick = 100, Importance = 3f,
+                Actors = new List<EventActorRef>(), MapHint = "", Payload = new Dictionary<string, string>()
+            };
+            var evt2 = new TestGameEvent
+            {
+                EventID = "e2", DefName = "Trade", Tick = 100, Importance = 2f,
+                Actors = new List<EventActorRef>(), MapHint = "", Payload = new Dictionary<string, string>()
+            };
+
+            pool.Append(evt1);
+            pool.Append(evt2);
+
+            Assert.Equal(2, pool.PendingCount);
+            Assert.Equal(5f, pool.TotalImportance);
+        }
+
+        [Fact]
+        public void DrainPending_ClearsFingerprints()
+        {
+            var pool = CreatePool();
+
+            var evt = new TestGameEvent
+            {
+                EventID = "e1", DefName = "Raid", Tick = 100, Importance = 3f,
+                Actors = new List<EventActorRef>(), MapHint = "", Payload = new Dictionary<string, string>()
+            };
+
+            pool.Append(evt);
+            Assert.Equal(1, pool.PendingCount);
+
+            pool.DrainPending();
+            Assert.Equal(0, pool.PendingCount);
+
+            // Drain 后相同指纹的事件应可再次入池
+            pool.Append(evt);
+            Assert.Equal(1, pool.PendingCount);
+        }
+
+        // ================================================================
         // Test Helper
         // ================================================================
 
@@ -338,12 +412,11 @@ namespace NPCLife.Tests.Driver
         {
             public string EventID { get; set; }
             public string DefName { get; set; }
-            public IReadOnlyList<string> Tags { get; set; }
-            public IReadOnlyList<string> Keywords { get; set; }
             public int Tick { get; set; }
             public float Importance { get; set; }
             public IReadOnlyList<EventActorRef> Actors { get; set; }
             public string MapHint { get; set; }
+            public string TimeLabel { get; set; }
             public IDictionary<string, string> Payload { get; set; }
         }
     }
