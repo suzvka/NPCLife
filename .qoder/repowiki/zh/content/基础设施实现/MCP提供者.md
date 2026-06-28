@@ -200,12 +200,13 @@ KnowledgeMcpProvider --> McpTool : "创建工具"
 - [KnowledgeMcpProvider.cs:15-355](file://src/NPCLife/Infrastructure/Mcp/KnowledgeMcpProvider.cs#L15-L355)
 
 ### 系统MCP提供者（SystemMcpProvider）
-- 职责：系统元工具集，提供技能列表查询、激活/反激活、当前时间获取。
+- 职责：系统元工具集，提供技能列表查询、激活/反激活、当前时间获取、中止。
 - 工具清单：
   - list_skills：列出指定工作空间的技能分组及激活状态（system隐式可用）
   - activate_skill：激活技能（可叠加）
   - deactivate_skill：反激活技能（system不可反激活）
   - get_current_time：获取格式化时间字符串
+  - abort：紧急中止当前对话
 - 依赖注入：IWorkspaceManager、时间提供器、ILogger
 - 错误处理：捕获异常并返回标准化错误JSON
 
@@ -243,8 +244,8 @@ SystemMcpProvider --> IWorkspaceManager : "依赖"
 - [SystemMcpProvider.cs:15-149](file://src/NPCLife/Infrastructure/Mcp/SystemMcpProvider.cs#L15-L149)
 
 ### 工作空间MCP提供者（编剧与临时任务代理）
-- 编剧提供者（WritingMcpProvider）：提供工作空间全量视图、逐句台词推送、结束本轮并归档、事件路由（可附加关键词）。
-- 临时任务代理（FreelancerMcpProvider）：提供轻量视图、逐句台词推送、结束本轮（无剧情结果）、事件路由。
+- 编剧提供者（WritingMcpProvider）：提供逐句台词推送、结束本轮并归档、事件路由（可附加关键词）。工作空间上下文由 prompt 自动注入。
+- 临时任务代理（FreelancerMcpProvider）：提供逐句台词推送、结束本轮（无剧情结果）、事件路由。工作空间上下文由 prompt 自动注入。
 - 两者均通过IMcpHookProvider注入IWorkspaceManager与ILogger，零静态耦合。
 
 章节来源

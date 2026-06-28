@@ -37,20 +37,22 @@ namespace NPCLife.Infrastructure.Mcp
                 McpTool.FromMethod(typeof(SystemMcpProvider).GetMethod(nameof(ActivateSkill)), this),
                 McpTool.FromMethod(typeof(SystemMcpProvider).GetMethod(nameof(DeactivateSkill)), this),
                 McpTool.FromMethod(typeof(SystemMcpProvider).GetMethod(nameof(GetCurrentTime)), this),
+                McpTool.FromMethod(typeof(SystemMcpProvider).GetMethod(nameof(Abort)), this),
             };
         }
 
         /// <summary>
-        /// 列出指定工作空间的所有可用 Skill 及其激活状态。
+        /// 列出当前工作空间的所有可用 Skill 及其激活状态。
         /// </summary>
         [McpTool(Name = "list_skills",
-                 Description = "列出指定工作空间的所有可用技能分组及激活状态。激活后才能使用对应技能的工具。")]
-        public string ListSkills(
-            [McpParam(Description = "工作空间唯一 ID")]
-            string workspaceId)
+                 Description = "列出当前工作空间的所有可用技能分组及激活状态。激活后才能使用对应技能的工具。")]
+        public string ListSkills()
         {
             try
             {
+                var workspaceId = McpSkillRegistry.CurrentWorkspaceId.Value;
+                if (string.IsNullOrEmpty(workspaceId))
+                    return McpSkillRegistry.MakeError("No active workspace context.");
                 var wm = _getWorkspaceManager();
                 if (wm == null)
                     return McpSkillRegistry.MakeError("WorkspaceManager not available.");
@@ -62,24 +64,25 @@ namespace NPCLife.Infrastructure.Mcp
             }
             catch (Exception e)
             {
-                _logger.Warning($"[NPCLife.SystemMcp] list_skills({workspaceId}) failed: {e.Message}");
+                _logger.Warning($"[NPCLife.SystemMcp] list_skills failed: {e.Message}");
                 return "{\"skills\":[],\"error\":" + JsonHelper.Quote(e.Message) + "}";
             }
         }
 
         /// <summary>
-        /// 为指定工作空间激活一个 Skill，使其工具可用。
+        /// 为当前工作空间激活一个 Skill，使其工具可用。
         /// </summary>
         [McpTool(Name = "activate_skill",
-                 Description = "为指定工作空间激活一个技能分组，使其中的工具在当前对话中可用。可多次调用叠加激活。返回新激活的工具定义。")]
+                 Description = "为当前工作空间激活一个技能分组，使其中的工具在当前对话中可用。可多次调用叠加激活。返回新激活的工具定义。")]
         public string ActivateSkill(
-            [McpParam(Description = "工作空间唯一 ID")]
-            string workspaceId,
             [McpParam(Description = "要激活的技能 ID，如 colony_overview / character_query / knowledge_management 等。使用 list_skills 查看全部可用技能。")]
             string skillId)
         {
             try
             {
+                var workspaceId = McpSkillRegistry.CurrentWorkspaceId.Value;
+                if (string.IsNullOrEmpty(workspaceId))
+                    return McpSkillRegistry.MakeError("No active workspace context.");
                 var wm = _getWorkspaceManager();
                 if (wm == null)
                     return McpSkillRegistry.MakeError("WorkspaceManager not available.");
@@ -90,24 +93,25 @@ namespace NPCLife.Infrastructure.Mcp
             }
             catch (Exception e)
             {
-                _logger.Warning($"[NPCLife.SystemMcp] activate_skill({workspaceId}, {skillId}) failed: {e.Message}");
+                _logger.Warning($"[NPCLife.SystemMcp] activate_skill({skillId}) failed: {e.Message}");
                 return "{\"error\":true,\"message\":" + JsonHelper.Quote(e.Message) + "}";
             }
         }
 
         /// <summary>
-        /// 为指定工作空间反激活一个 Skill。
+        /// 为当前工作空间反激活一个 Skill。
         /// </summary>
         [McpTool(Name = "deactivate_skill",
-                 Description = "为指定工作空间反激活一个技能分组。system 技能不可反激活。已反激活的技能的工具将不再可用。")]
+                 Description = "为当前工作空间反激活一个技能分组。system 技能不可反激活。已反激活的技能的工具将不再可用。")]
         public string DeactivateSkill(
-            [McpParam(Description = "工作空间唯一 ID")]
-            string workspaceId,
             [McpParam(Description = "要反激活的技能 ID。使用 list_skills 查看当前激活状态。")]
             string skillId)
         {
             try
             {
+                var workspaceId = McpSkillRegistry.CurrentWorkspaceId.Value;
+                if (string.IsNullOrEmpty(workspaceId))
+                    return McpSkillRegistry.MakeError("No active workspace context.");
                 var wm = _getWorkspaceManager();
                 if (wm == null)
                     return McpSkillRegistry.MakeError("WorkspaceManager not available.");
@@ -118,7 +122,7 @@ namespace NPCLife.Infrastructure.Mcp
             }
             catch (Exception e)
             {
-                _logger.Warning($"[NPCLife.SystemMcp] deactivate_skill({workspaceId}, {skillId}) failed: {e.Message}");
+                _logger.Warning($"[NPCLife.SystemMcp] deactivate_skill({skillId}) failed: {e.Message}");
                 return "{\"error\":true,\"message\":" + JsonHelper.Quote(e.Message) + "}";
             }
         }
@@ -143,6 +147,16 @@ namespace NPCLife.Infrastructure.Mcp
                 _logger.Warning($"[NPCLife.SystemMcp] get_current_time failed: {e.Message}");
                 return "{\"error\":true,\"message\":" + JsonHelper.Quote(e.Message) + "}";
             }
+        }
+
+        /// <summary>
+        /// 中止当前对话。
+        /// </summary>
+        [McpTool(Name = "abort",
+                 Description = "如果由于错误过多、触发安全或道德底线等原因而无法继续输出，则调用此工具。调用后 Agent 立即停止本轮处理。")]
+        public void Abort()
+        {
+            McpSkillRegistry.AbortRequested.Value = true;
         }
     }
 }

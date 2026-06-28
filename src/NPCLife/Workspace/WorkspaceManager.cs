@@ -88,7 +88,7 @@ namespace NPCLife.Workspace
         // CRUD
         // ================================================================
 
-        public IWorkspace Create(string label, List<string> colonistIds, List<string> tags, WorkspaceRole createdByRole)
+        public IWorkspace Create(string label, List<string> tags, WorkspaceRole createdByRole)
         {
             string now = Now();
 
@@ -100,7 +100,7 @@ namespace NPCLife.Workspace
                 CreatedByRole = createdByRole,
                 ParentId = null,
                 MergedFromIds = new List<string>(),
-                ColonistIds = colonistIds ?? new List<string>(),
+                FocusCharacterIds = new List<string>(),
                 Tags = tags ?? new List<string>(),
                 Rounds = new List<WorkspaceRound>(),
                 CurrentRecap = "",
@@ -233,7 +233,7 @@ namespace NPCLife.Workspace
                 CreatedByRole = parent.CreatedByRole,
                 ParentId = parentId,
                 MergedFromIds = new List<string>(),
-                ColonistIds = new List<string>(parent.ColonistIds ?? new List<string>()),
+                FocusCharacterIds = new List<string>(),
                 Tags = new List<string>(parent.Tags ?? new List<string>()),
                 Rounds = copiedRounds,
                 CurrentRecap = branchRecap ?? "",
@@ -327,17 +327,6 @@ namespace NPCLife.Workspace
                 target.MergedFromIds = new List<string>();
             target.MergedFromIds.Add(sourceId);
 
-            if (source.ColonistIds != null)
-            {
-                if (target.ColonistIds == null)
-                    target.ColonistIds = new List<string>();
-                foreach (var cid in source.ColonistIds)
-                {
-                    if (!target.ColonistIds.Contains(cid))
-                        target.ColonistIds.Add(cid);
-                }
-            }
-
             if (source.Tags != null)
             {
                 if (target.Tags == null)
@@ -379,7 +368,7 @@ namespace NPCLife.Workspace
         // 事件路由
         // ================================================================
 
-        public bool RouteEvents(string workspaceId, IReadOnlyList<IGameEvent> events)
+        public bool RouteEvents(string workspaceId, IReadOnlyList<IGameEvent> events, IReadOnlyList<string> focusCharacterIds = null)
         {
             var ws = GetImpl(workspaceId);
             if (ws == null || ws.Status != WorkspaceStatus.Active) return false;
@@ -387,6 +376,9 @@ namespace NPCLife.Workspace
 
             foreach (var evt in events)
                 ws.EventPool.Append(evt);
+
+            if (focusCharacterIds != null)
+                ws.State.FocusCharacterIds = new List<string>(focusCharacterIds);
 
             return true;
         }
@@ -471,8 +463,8 @@ namespace NPCLife.Workspace
                 w.Prop("parentId", ws.ParentId);
             if (ws.MergedFromIds != null && ws.MergedFromIds.Count > 0)
                 w.Array("mergedFromIds", ws.MergedFromIds);
-            if (ws.ColonistIds != null && ws.ColonistIds.Count > 0)
-                w.Array("colonistIds", ws.ColonistIds);
+            if (ws.FocusCharacterIds != null && ws.FocusCharacterIds.Count > 0)
+                w.Array("focusCharacterIds", ws.FocusCharacterIds);
             if (ws.Tags != null && ws.Tags.Count > 0)
                 w.Array("tags", ws.Tags);
             if (!string.IsNullOrEmpty(ws.CurrentRecap))
@@ -533,7 +525,7 @@ namespace NPCLife.Workspace
                 CreatedByRole = ParseRole(data.TryGetValue("createdByRole", out v) ? v : "Director"),
                 ParentId = data.TryGetValue("parentId", out v) ? (string.IsNullOrEmpty(v) ? null : v) : null,
                 MergedFromIds = DeserializeStringList(data.TryGetValue("mergedFromIds", out v) ? v : null),
-                ColonistIds = DeserializeStringList(data.TryGetValue("colonistIds", out v) ? v : null),
+                FocusCharacterIds = DeserializeStringList(data.TryGetValue("focusCharacterIds", out v) ? v : null),
                 Tags = DeserializeStringList(data.TryGetValue("tags", out v) ? v : null),
                 CurrentRecap = data.TryGetValue("currentRecap", out v) ? v : "",
                 Rounds = DeserializeRounds(data.TryGetValue("rounds", out v) ? v : null),

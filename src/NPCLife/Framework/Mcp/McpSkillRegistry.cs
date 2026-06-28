@@ -39,6 +39,19 @@ namespace NPCLife.Framework.Mcp
 
         private static readonly object _lock = new();
 
+        /// <summary>
+        /// 当前工具调用的工作空间 ID 环境上下文。
+        /// 由 AgentLoop 在调用工具前设置，调用结束后清除。
+        /// SystemMcpProvider 等需要感知所属工作空间的工具从此读取。
+        /// </summary>
+        public static readonly System.Threading.AsyncLocal<string> CurrentWorkspaceId = new();
+
+        /// <summary>
+        /// 当前 Agent 运行是否已被请求中止。
+        /// 由 Abort 工具设置，AgentLoop 在每轮工具执行后检查。
+        /// </summary>
+        public static readonly System.Threading.AsyncLocal<bool> AbortRequested = new();
+
         /// <summary>系统技能 ID，对所有 workspace 隐式可用。</summary>
         public const string SystemSkillId = "system";
 
@@ -68,10 +81,12 @@ namespace NPCLife.Framework.Mcp
                     "查询角色当前所处的环境信息（室内外、温光、天气、房间）");
                 RegisterSkill("knowledge_management", "知识管理",
                     "词条查询、学习、列表、删除、统计");
+                RegisterSkill("workspace_freelancer", "工作空间(临时任务代理)",
+                    "处理突发、独立事件的叙事输出。逐句台词推送与编剧同构。Freelancer 专用。");
                 RegisterSkill("workspace_direction", "工作空间(导演)",
                     "剧情线工作空间的创建、分支、合并、生命周期管理。导演专用。");
                 RegisterSkill("workspace_writing", "工作空间(编剧)",
-                    "查看工作空间完整内容、推送叙事回合、上报推进状态信号。编剧专用。");
+                    "推送叙事回合、上报推进状态信号、事件路由。上下文由 prompt 自动注入。编剧专用。");
             }
         }
 
@@ -197,7 +212,7 @@ namespace NPCLife.Framework.Mcp
                 var sw = new JsonWriter(128);
                 sw.Prop("id", SystemSkillId);
                 sw.Prop("name", "系统");
-                sw.Prop("description", "系统元工具集（技能列表、激活、反激活）");
+                sw.Prop("description", "系统元工具集（技能列表、激活、反激活、当前时间、中止）");
                 sw.Prop("toolCount", systemToolCount);
                 sw.Prop("active", true);
                 skills.Add(sw.Close());

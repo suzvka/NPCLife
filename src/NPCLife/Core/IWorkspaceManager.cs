@@ -16,7 +16,7 @@ namespace NPCLife.Core
         // --- CRUD（5 方法） ---
 
         /// <summary>创建新的工作空间。</summary>
-        IWorkspace Create(string label, List<string> colonistIds, List<string> tags, WorkspaceRole createdByRole);
+        IWorkspace Create(string label, List<string> tags, WorkspaceRole createdByRole);
 
         /// <summary>按 ID 查询工作空间。</summary>
         IWorkspace Get(string id);
@@ -44,7 +44,7 @@ namespace NPCLife.Core
         /// 将事件路由到指定工作空间的事件池。
         /// 管理器只做转发，实际写入由工作空间的 EventPool 组件处理。
         /// </summary>
-        bool RouteEvents(string workspaceId, IReadOnlyList<IGameEvent> events);
+        bool RouteEvents(string workspaceId, IReadOnlyList<IGameEvent> events, IReadOnlyList<string> focusCharacterIds = null);
 
         // --- 持久化（1 方法） ---
 

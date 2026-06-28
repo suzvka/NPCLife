@@ -54,7 +54,6 @@ namespace NPCLife.Tests.Driver
                 Label = "Test Workspace",
                 Status = WorkspaceStatus.Active,
                 CreatedByRole = WorkspaceRole.Screenwriter,
-                ColonistIds = new List<string> { "pawn_001" },
                 Tags = new List<string> { "RaidArc" },
                 ActiveSkillIds = new List<string> { "workspace_writing" }
             };

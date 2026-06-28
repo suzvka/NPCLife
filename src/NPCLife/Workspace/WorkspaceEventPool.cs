@@ -155,6 +155,8 @@ namespace NPCLife.Workspace
 
         public int TotalAppended => _totalAppended;
 
+        public string WorkspaceId => _ws.Id;
+
         // ================================================================
         // IEventLog: 池激活语义（操作 WorkspaceState 的 pending 字段）
         // ================================================================

@@ -55,7 +55,7 @@ namespace NPCLife.Workspace
         public WorkspaceRole CreatedByRole => _state.CreatedByRole;
         public string ParentId => _state.ParentId;
         public IReadOnlyList<string> MergedFromIds => _state.MergedFromIds;
-        public IReadOnlyList<string> ColonistIds => _state.ColonistIds;
+        public IReadOnlyList<string> FocusCharacterIds => _state.FocusCharacterIds;
         public IReadOnlyList<string> Tags => _state.Tags;
         public IReadOnlyList<WorkspaceRound> Rounds => _state.Rounds;
         public string CurrentRecap => _state.CurrentRecap;

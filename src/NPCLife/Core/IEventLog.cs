@@ -11,6 +11,9 @@ namespace NPCLife.Core
     /// </summary>
     public interface IEventLog
     {
+        /// <summary>所属工作空间的唯一 ID。</summary>
+        string WorkspaceId { get; }
+
         // --- 日志写入与查询 ---
 
         /// <summary>追加一条事件。</summary>

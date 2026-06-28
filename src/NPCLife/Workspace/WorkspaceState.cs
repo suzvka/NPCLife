@@ -111,8 +111,8 @@ namespace NPCLife.Workspace
         /// <summary>合并来源工作空间 ID 列表。</summary>
         public List<string> MergedFromIds;
 
-        /// <summary>关联的角色 ID 列表。</summary>
-        public List<string> ColonistIds;
+        /// <summary>导演指定的本轮聚焦角色 ID 列表。每次 route_events 覆盖更新。</summary>
+        public List<string> FocusCharacterIds;
 
         /// <summary>语义标签（如 "CombatAftermath", "RomanceArc"）。</summary>
         public List<string> Tags;

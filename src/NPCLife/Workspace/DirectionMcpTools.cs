@@ -54,8 +54,6 @@ namespace NPCLife.Workspace
                  Description = "创建新的上下文空间（剧情线工作空间），返回工作空间完整信息。创建者角色为 Director。")]
         public string CreateWorkspace(
             [McpParam(Description = "人类可读标签，如 'RaidAftermath'")] string label,
-            [McpParam(Description = "关联殖民者 ThingID，逗号分隔",
-                      Required = McpRequired.False)] string colonistIds = null,
             [McpParam(Description = "语义标签，逗号分隔，如 'Combat,Romance'",
                       Required = McpRequired.False)] string tags = null)
         {
@@ -64,10 +62,9 @@ namespace NPCLife.Workspace
                 var manager = _getWorkspaceManager();
                 if (manager == null) return "{}";
 
-                var colonistList = ParseStringList(colonistIds);
                 var tagList = ParseStringList(tags);
 
-                var ws = manager.Create(label, colonistList, tagList, WorkspaceRole.Director);
+                var ws = manager.Create(label, tagList, WorkspaceRole.Director);
                 return SerializeDirectorView(ws);
             }
             catch (Exception e)
@@ -289,15 +286,17 @@ namespace NPCLife.Workspace
         /// 将事件从源工作空间推送到目标工作空间。可附加留言。
         /// </summary>
         [McpTool(Name = "route_events",
-                 Description = "将事件从源工作空间的事件池推送到目标工作空间。可附加留言和知识库查询关键词。源和目标都必须是已存在的工作空间 ID。")]
+                 Description = "将事件从源工作空间的事件池推送到目标工作空间。可附加留言、知识库词条查询和聚焦角色。源和目标都必须是已存在的工作空间 ID。")]
         public string RouteEvents(
             [McpParam(Description = "源工作空间 ID（事件从这里取）")] string sourceWorkspaceId,
             [McpParam(Description = "目标工作空间 ID（事件推送到这里）")] string targetWorkspaceId,
             [McpParam(Description = "要路由的事件 ID，多个用逗号分隔")] string eventIds,
             [McpParam(Description = "可选留言：附带给目标工作空间的备注",
                       Required = McpRequired.False)] string message = null,
-            [McpParam(Description = "可选知识库查询关键词，逗号分隔。Agent 激活时自动收集所有事件的关键词去重后查询知识库，命中结果注入提示词。",
-                      Required = McpRequired.False)] string keywords = null)
+            [McpParam(Description = "可选知识库词条名，逗号分隔。这些词条会在目标 Agent 激活时查询知识库，命中结果注入提示词。注意：这是知识库中的词条名（如“心灵波动”），不是事件分类标签。",
+                      Required = McpRequired.False)] string keywords = null,
+            [McpParam(Description = "可选聚焦角色 ThingID，逗号分隔。导演指定本轮叙事应重点关注的角色，编剧激活时可见。每次推送覆盖更新。",
+                      Required = McpRequired.False)] string focusCharacterIds = null)
         {
             try
             {
@@ -314,6 +313,7 @@ namespace NPCLife.Workspace
                     return "{\"success\":false,\"error\":\"source workspace not found\"}";
 
                 var keywordList = ParseStringList(keywords);
+                var focusList = ParseStringList(focusCharacterIds);
 
                 var events = new List<IGameEvent>();
                 foreach (var id in ids)
@@ -323,7 +323,7 @@ namespace NPCLife.Workspace
                     {
                         if (keywordList.Count > 0)
                         {
-                            // 深拷贝事件并附加关键词
+                            // 深拷贝事件并附加查询词条
                             var copy = EventCardData.From(evt);
                             foreach (var kw in keywordList)
                             {
@@ -340,7 +340,7 @@ namespace NPCLife.Workspace
                 }
 
                 int routed = 0;
-                if (events.Count > 0 && manager.RouteEvents(targetWorkspaceId, events))
+                if (events.Count > 0 && manager.RouteEvents(targetWorkspaceId, events, focusList.Count > 0 ? focusList : null))
                     routed = events.Count;
 
                 var w = new JsonWriter(128);
@@ -380,7 +380,8 @@ namespace NPCLife.Workspace
                 w.Prop("parentId", ws.ParentId);
             if (ws.MergedFromIds != null && ws.MergedFromIds.Count > 0)
                 w.Array("mergedFromIds", ws.MergedFromIds);
-            w.Array("colonistIds", ws.ColonistIds);
+            if (ws.FocusCharacterIds != null && ws.FocusCharacterIds.Count > 0)
+                w.Array("focusCharacterIds", ws.FocusCharacterIds);
             w.Array("tags", ws.Tags);
             w.Prop("roundCount", ws.Rounds?.Count ?? 0);
             w.Prop("createdAt", ws.CreatedAt ?? "");
@@ -423,8 +424,9 @@ namespace NPCLife.Workspace
             w.Prop("createdByRole", ws.CreatedByRole.ToString());
             if (ws.ParentId != null)
                 w.Prop("parentId", ws.ParentId);
-            w.Prop("colonistCount", ws.ColonistIds?.Count ?? 0);
             w.Prop("roundCount", ws.Rounds?.Count ?? 0);
+            if (ws.FocusCharacterIds != null && ws.FocusCharacterIds.Count > 0)
+                w.Array("focusCharacterIds", ws.FocusCharacterIds);
             w.Array("tags", ws.Tags);
             w.Prop("createdAt", ws.CreatedAt ?? "");
             w.Prop("lastActivityAt", ws.LastActivityAt ?? "");

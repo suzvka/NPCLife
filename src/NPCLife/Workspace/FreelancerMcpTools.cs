@@ -10,13 +10,13 @@ using System.Text;
 namespace NPCLife.Workspace
 {
     /// <summary>
-    /// 临时任务代理 (Freelancer) 的 MCP 工具提供者。通过 IMcpHookProvider 接口注入依赖。
+    /// 即兴编剧 (Freelancer) 的 MCP 工具提供者。通过 IMcpHookProvider 接口注入依赖。
     ///
     /// 与 WritingMcpProvider 的关键区别：
-    /// - 无 get_workspace（含叙事内容）—— Freelancer 不维护剧情上下文
-    /// - 无 finish_round 的 outcome/directorNote —— Freelancer 不汇报剧情线推进状态
+    /// - finish_round 无 outcome/directorNote —— Freelancer 不汇报剧情线推进状态
     /// - push_line / finish_round 使用 WorkspaceRole.Freelancer 身份
     /// - route_events 可将不适合的事件推回导演工作空间
+    /// - 无 get_workspace：工作空间元数据通过 AgentLoop 自动注入 prompt，无需工具调用
     /// </summary>
     public class FreelancerMcpProvider : IMcpHookProvider
     {
@@ -31,13 +31,12 @@ namespace NPCLife.Workspace
 
         public string HookId => "workspace_freelancer";
         public string HookName => "工作空间(临时任务代理)";
-        public string HookDescription => "处理日常对话、突发独立事件的叙事输出。逐句台词推送，与编剧同构但无剧情上下文。Freelancer 专用。";
+        public string HookDescription => "处理突发、独立事件的叙事输出。逐句台词推送与编剧同构。无叙事历史和上下文查询工具（由 prompt 自动注入）。Freelancer 专用。";
 
         public IReadOnlyList<McpTool> GetTools()
         {
             return new McpTool[]
             {
-                McpTool.FromMethod(typeof(FreelancerMcpProvider).GetMethod(nameof(GetWorkspace)), this),
                 McpTool.FromMethod(typeof(FreelancerMcpProvider).GetMethod(nameof(PushLine)), this),
                 McpTool.FromMethod(typeof(FreelancerMcpProvider).GetMethod(nameof(FinishRound)), this),
                 McpTool.FromMethod(typeof(FreelancerMcpProvider).GetMethod(nameof(RouteEvents)), this),
@@ -45,47 +44,16 @@ namespace NPCLife.Workspace
         }
 
         // ================================================================
-        // 查询
-        // ================================================================
-
-        /// <summary>
-        /// 获取工作空间轻量信息。Freelancer 不维护剧情上下文，因此只返回元数据和事件摘要，
-        /// 不包含叙事轮次历史。
-        /// </summary>
-        [McpTool(Name = "fre_get_workspace",
-                 Description = "获取工作空间轻量信息：元数据、关联角色、标签、待处理事件摘要和轮次统计。不含叙事历史内容。")]
-        public string GetWorkspace(
-            [McpParam(Description = "工作空间唯一 ID")] string workspaceId)
-        {
-            try
-            {
-                var manager = _getWorkspaceManager();
-                if (manager == null) return "{}";
-
-                var ws = manager.Get(workspaceId);
-                if (ws == null) return "{}";
-
-                return SerializeResult(ws);
-            }
-            catch (Exception e)
-            {
-                _logger.Warning($"[NPCLife.FreelancerMcp] fre_get_workspace({workspaceId}) failed: {e.Message}");
-                return "{}";
-            }
-        }
-
-        // ================================================================
         // 逐句台词推送
         // ================================================================
 
         /// <summary>
-        /// 推送单句台词到工作空间。Freelancer 身份调用。
+        /// 推送单句台词到当前工作空间。Freelancer 身份调用。
         /// </summary>
         [McpTool(Name = "push_line",
-                 Description = "推送单句台词到工作空间，立即在游戏内显示。可一次并行调用多个。\n" +
+                 Description = "推送单句台词到当前工作空间，立即在游戏内显示。可一次并行调用多个。\n" +
                                "type: dialogue(角色对话) / narration(旁白/环境描写) / action(动作描写) / pause(纯停顿)。")]
         public string PushLine(
-            [McpParam(Description = "目标工作空间 ID")] string workspaceId,
             [McpParam(Description = "说话者的 ThingID。dialogue 类型必填，其他类型省略。")]
             string speakerId,
             [McpParam(Description = "台词/描述文本。pause 类型时可为空。")]
@@ -97,6 +65,9 @@ namespace NPCLife.Workspace
         {
             try
             {
+                var workspaceId = McpSkillRegistry.CurrentWorkspaceId.Value;
+                if (string.IsNullOrEmpty(workspaceId)) return "{}";
+
                 var manager = _getWorkspaceManager();
                 if (manager == null) return "{}";
 
@@ -125,7 +96,6 @@ namespace NPCLife.Workspace
                  Description = "结束本轮叙事。Freelancer 不维护剧情上下文，recap 为本轮摘要即可。\n" +
                                "在 push_line 推送完所有台词后必须调用。")]
         public string FinishRound(
-            [McpParam(Description = "目标工作空间 ID")] string workspaceId,
             [McpParam(Description = "本轮摘要：Freelancer 对当前事件批次的简要总结。")]
             string recap,
             [McpParam(Description = "本轮触发的事件 ID 列表，逗号分隔。仅作溯源。",
@@ -133,6 +103,9 @@ namespace NPCLife.Workspace
         {
             try
             {
+                var workspaceId = McpSkillRegistry.CurrentWorkspaceId.Value;
+                if (string.IsNullOrEmpty(workspaceId)) return "{}";
+
                 var manager = _getWorkspaceManager();
                 if (manager == null) return "{}";
 
@@ -161,26 +134,29 @@ namespace NPCLife.Workspace
         /// 将事件从当前工作空间推送到目标工作空间。Freelancer 可将不适合的事件推回导演。
         /// </summary>
         [McpTool(Name = "route_events",
-                 Description = "将事件从源工作空间的事件池推送到目标工作空间。可附加留言和知识库查询关键词。Freelancer 可将不适合的事件推回导演工作空间。")]
+                 Description = "将事件从当前工作空间的事件池推送到目标工作空间。可附加留言和知识库词条查询。Freelancer 可将不适合的事件推回导演工作空间。")]
         public string RouteEvents(
-            [McpParam(Description = "源工作空间 ID（事件从这里取）")] string sourceWorkspaceId,
             [McpParam(Description = "目标工作空间 ID（事件推送到这里）")] string targetWorkspaceId,
             [McpParam(Description = "要路由的事件 ID，多个用逗号分隔")] string eventIds,
             [McpParam(Description = "可选留言：附带给目标工作空间的备注",
                       Required = McpRequired.False)] string message = null,
-            [McpParam(Description = "可选知识库查询关键词，逗号分隔。Agent 激活时自动收集所有事件的关键词去重后查询知识库，命中结果注入提示词。",
+            [McpParam(Description = "可选知识库词条名，逗号分隔。这些词条会在目标 Agent 激活时查询知识库，命中结果注入提示词。注意：这是知识库中的词条名（如\"心灵波动\"），不是事件分类标签。",
                       Required = McpRequired.False)] string keywords = null)
         {
             try
             {
+                var sourceWorkspaceId = McpSkillRegistry.CurrentWorkspaceId.Value;
+                if (string.IsNullOrEmpty(sourceWorkspaceId))
+                    return "{\"success\":false,\"error\":\"no workspace context\"}";
+        
                 var manager = _getWorkspaceManager();
                 if (manager == null)
                     return "{\"success\":false,\"error\":\"WorkspaceManager unavailable\"}";
-
+        
                 var ids = ParseStringList(eventIds);
                 if (ids.Count == 0)
                     return "{\"success\":false,\"error\":\"no eventIds provided\"}";
-
+        
                 var sourceWs = manager.Get(sourceWorkspaceId);
                 if (sourceWs == null)
                     return "{\"success\":false,\"error\":\"source workspace not found\"}";
@@ -247,8 +223,8 @@ namespace NPCLife.Workspace
             w.Prop("id", ws.Id ?? "");
             w.Prop("label", ws.Label ?? "");
             w.Prop("status", ws.Status.ToString());
-            if (ws.ColonistIds != null && ws.ColonistIds.Count > 0)
-                w.Array("colonistIds", ws.ColonistIds);
+            if (ws.FocusCharacterIds != null && ws.FocusCharacterIds.Count > 0)
+                w.Array("focusCharacterIds", ws.FocusCharacterIds);
             if (ws.Tags != null && ws.Tags.Count > 0)
                 w.Array("tags", ws.Tags);
             w.Prop("roundCount", ws.Rounds?.Count ?? 0);

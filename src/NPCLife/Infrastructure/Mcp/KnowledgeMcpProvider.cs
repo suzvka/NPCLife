@@ -35,7 +35,7 @@ namespace NPCLife.Infrastructure.Mcp
                 McpTool.FromMethod(typeof(KnowledgeMcpProvider).GetMethod(nameof(LearnTerm)), this),
                 McpTool.FromMethod(typeof(KnowledgeMcpProvider).GetMethod(nameof(ListKnownTerms)), this),
                 McpTool.FromMethod(typeof(KnowledgeMcpProvider).GetMethod(nameof(ForgetTerm)), this),
-                McpTool.FromMethod(typeof(KnowledgeMcpProvider).GetMethod(nameof(GetTermStats)), this),
+                McpTool.FromMethod(typeof(KnowledgeMcpProvider).GetMethod(nameof(GetTermStats)), this)
             };
         }
 
@@ -47,7 +47,7 @@ namespace NPCLife.Infrastructure.Mcp
         /// 查询词条释义。并行查询内部缓存和所有外部源，返回全部命中的释义列表。
         /// </summary>
         [McpTool(Name = "lookup_term",
-                 Description = "查询词条释义。并行查询所有知识源，返回全部命中的释义列表，每条标注来源。")]
+                 Description = "查询词条释义。并行查询所有知识源，返回全部命中的释义列表。")]
         public string LookupTerm(
             [McpParam(Description = "要查询的词条名")] string term)
         {
@@ -146,13 +146,14 @@ namespace NPCLife.Infrastructure.Mcp
                     var tagList = ParseTagList(tags);
                     entries = svc.ListByTags(tagList);
                 }
-                else if (!string.IsNullOrEmpty(prefix))
-                {
-                    entries = svc.ListByPrefix(prefix);
-                }
                 else
                 {
                     entries = svc.ListAll();
+                }
+
+                if (!string.IsNullOrEmpty(prefix))
+                {
+                    entries = entries.Where(e => e.Term != null && e.Term.StartsWith(prefix, StringComparison.Ordinal)).ToList();
                 }
 
                 if (entries.Count > limit)
@@ -199,12 +200,12 @@ namespace NPCLife.Infrastructure.Mcp
         }
 
         /// <summary>
-        /// 获取词条的元数据统计（信心度、来源等）。
+        /// 获取指定词条的元数据统计。
         /// </summary>
         [McpTool(Name = "get_term_stats",
-                 Description = "获取指定词条的元数据：信心度、来源。")]
+                 Description = "获取指定词条的元数据统计，包含来源、置信度、关联标签等信息。")]
         public string GetTermStats(
-            [McpParam(Description = "词条名")] string term)
+            [McpParam(Description = "要查询统计的词条名")] string term)
         {
             try
             {
@@ -216,10 +217,10 @@ namespace NPCLife.Infrastructure.Mcp
                     return "{\"hit\":false,\"error\":\"KnowledgeService unavailable\"}";
 
                 var hits = svc.Lookup(term);
-                if (hits.Count > 0)
-                    return SerializeTermStatsList(hits);
+                if (hits.Count == 0)
+                    return MakeMiss(term);
 
-                return MakeMiss(term);
+                return SerializeTermStatsList(hits);
             }
             catch (Exception e)
             {

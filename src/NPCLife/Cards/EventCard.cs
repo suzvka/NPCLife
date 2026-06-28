@@ -19,7 +19,7 @@ namespace NPCLife.Cards
         /// <summary>语义标签列表。LLM 消费者直接读字符串，无需枚举解析。</summary>
         IReadOnlyList<string> Tags { get; }
 
-        /// <summary>知识库查询关键词。Agent 激活时收集所有事件的关键词去重后批量查询知识库，命中结果注入提示词。</summary>
+        /// <summary>知识库查询词条名。Agent 激活时收集所有事件的词条名去重后批量查询知识库，命中结果注入提示词。注意区别于 Tags（事件分类标签）。</summary>
         IReadOnlyList<string> Keywords { get; }
 
         /// <summary>发生时刻 (游戏 tick)。</summary>

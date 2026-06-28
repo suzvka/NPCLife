@@ -52,6 +52,7 @@ namespace NPCLife.Agent
         private readonly ICardSerializer _serializer;
         private readonly Action _unsubscribe; // 取消事件订阅的委托
         private readonly Func<string> _contextProvider;
+        private readonly Func<string> _workspaceContext;
         private readonly IKnowledgeService _knowledgeService;
         private readonly float _temperature;
         private readonly List<(string Cred, string Model)> _modelRefs;
@@ -81,7 +82,8 @@ namespace NPCLife.Agent
         /// <param name="logger">日志接口。</param>
         /// <param name="serializer">Card 序列化器（可选，默认使用 CardSerializer.Default）。</param>
         /// <param name="contextProvider">动态上下文提供者（可选）。每次激活时调用，返回值追加到用户消息末尾。</param>
-        /// <param name="knowledgeService">知识服务（可选）。Agent 激活时收集事件关键词去重后批量查询，命中结果注入提示词。第三方可实现 IKnowledgeService 自定义架构。</param>
+        /// <param name="workspaceContext">工作空间上下文（可选）。每次激活时调用，返回值注入用户消息头部。用于替代 get_workspace 工具调用，消除不必要的 API 往返。</param>
+        /// <param name="knowledgeService">知识服务（可选）。Agent 激活时收集事件词条名去重后批量查询，命中结果注入提示词。第三方可实现 IKnowledgeService 自定义架构。</param>
         /// <param name="temperature">LLM 采样温度（0~2），默认 0.7。</param>
         /// <param name="modelAlias">关联的模型代号（如 "primary"），用于从 Registry 解析凭证。默认 "primary"。</param>
         public AgentLoop(
@@ -95,6 +97,7 @@ namespace NPCLife.Agent
             ICardSerializer serializer = null,
             Func<string> contextProvider = null,
             IKnowledgeService knowledgeService = null,
+            Func<string> workspaceContext = null,
             float temperature = 0.7f,
             string modelRefsJson = null,
             string currentModel = null)
@@ -108,6 +111,7 @@ namespace NPCLife.Agent
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _serializer = serializer ?? CardSerializer.Default;
             _contextProvider = contextProvider;
+            _workspaceContext = workspaceContext;
             _knowledgeService = knowledgeService;
             _temperature = temperature;
             _modelRefs = ParseModelRefs(modelRefsJson);
@@ -269,42 +273,59 @@ namespace NPCLife.Agent
                     // --- ExecutingTools ---
                     _state = AgentRunState.ExecutingTools;
                     var toolResults = new List<(string id, string result)>();
+                    var aborted = false;
 
-                    foreach (var tc in response.ToolCalls)
+                    McpSkillRegistry.CurrentWorkspaceId.Value = _pool.WorkspaceId;
+                    try
                     {
-                        _logger.Message($"[NPCLife.Agent] Tool call: {tc.Name}({tc.Arguments})");
-
-                        // 管道拦截：工具调用前
-                        var toolCtx = new ToolCallContext { ToolName = tc.Name, Arguments = tc.Arguments };
-                        AgentPipeline.RunBeforeToolCall(toolCtx);
-
-                        EventBus.Publish(FrameworkEvents.ToolInvoking, EventArg.WithPayload(
-                            ("runId", runId),
-                            ("toolName", tc.Name), ("round", _round.ToString())
-                        ));
-
-                        string result;
-                        if (toolCtx.Cancelled)
+                        foreach (var tc in response.ToolCalls)
                         {
-                            result = "{\"error\":\"cancelled by interceptor\"}";
+                            _logger.Message($"[NPCLife.Agent] Tool call: {tc.Name}({tc.Arguments})");
+
+                            // 管道拦截：工具调用前
+                            var toolCtx = new ToolCallContext { ToolName = tc.Name, Arguments = tc.Arguments };
+                            AgentPipeline.RunBeforeToolCall(toolCtx);
+
+                            EventBus.Publish(FrameworkEvents.ToolInvoking, EventArg.WithPayload(
+                                ("runId", runId),
+                                ("toolName", tc.Name), ("round", _round.ToString())
+                            ));
+
+                            string result;
+                            if (toolCtx.Cancelled)
+                            {
+                                result = "{\"error\":\"cancelled by interceptor\"}";
+                            }
+                            else
+                            {
+                                result = McpSkillRegistry.InvokeTool(_skillIds, tc.Name, tc.Arguments);
+                                toolCtx.Result = result;
+                            }
+
+                            // 管道拦截：工具调用后
+                            AgentPipeline.RunAfterToolCall(toolCtx);
+
+                            EventBus.Publish(FrameworkEvents.ToolInvoked, EventArg.WithPayload(
+                                ("runId", runId),
+                                ("toolName", tc.Name), ("resultLength", (result?.Length ?? 0).ToString())
+                            ));
+
+                            toolResults.Add((tc.Id, result));
+
+                            _logger.Message($"[NPCLife.Agent] Tool result ({tc.Name}): {TruncateResult(result)}");
+
+                            if (McpSkillRegistry.AbortRequested.Value)
+                            {
+                                _logger.Message($"[NPCLife.Agent] Abort requested by tool '{tc.Name}'. Stopping.");
+                                aborted = true;
+                                break;
+                            }
                         }
-                        else
-                        {
-                            result = McpSkillRegistry.InvokeTool(_skillIds, tc.Name, tc.Arguments);
-                            toolCtx.Result = result;
-                        }
-
-                        // 管道拦截：工具调用后
-                        AgentPipeline.RunAfterToolCall(toolCtx);
-
-                        EventBus.Publish(FrameworkEvents.ToolInvoked, EventArg.WithPayload(
-                            ("runId", runId),
-                            ("toolName", tc.Name), ("resultLength", (result?.Length ?? 0).ToString())
-                        ));
-
-                        toolResults.Add((tc.Id, result));
-
-                        _logger.Message($"[NPCLife.Agent] Tool result ({tc.Name}): {TruncateResult(result)}");
+                    }
+                    finally
+                    {
+                        McpSkillRegistry.CurrentWorkspaceId.Value = null;
+                        McpSkillRegistry.AbortRequested.Value = false;
                     }
 
                     // —— AppendingToolResults ——
@@ -318,6 +339,8 @@ namespace NPCLife.Agent
                         ("round", _round.ToString()),
                         ("toolCallCount", response.ToolCalls.Count.ToString())
                     ));
+
+                    if (aborted) break;
                 }
 
                 // --- Finishing ---
@@ -458,11 +481,25 @@ namespace NPCLife.Agent
         private string BuildUserMessage(IReadOnlyList<IGameEvent> events)
         {
             var sb = new StringBuilder();
+
+            // 工作空间上下文：替代 get_workspace 工具调用，消除 API 往返
+            if (_workspaceContext != null)
+            {
+                var ctx = _workspaceContext();
+                if (!string.IsNullOrEmpty(ctx))
+                {
+                    sb.AppendLine("## 当前工作空间");
+                    sb.AppendLine();
+                    sb.AppendLine(ctx);
+                    sb.AppendLine();
+                }
+            }
+
             sb.AppendLine("## 待处理事件");
             sb.AppendLine();
             sb.AppendLine(_serializer.SerializeEventList(events));
 
-            // 收集所有事件的关键词，去重后批量查询知识服务
+            // 收集所有事件的查询词条，去重后批量查询知识服务
             bool hasKnowledgeSkill = _skillIds != null &&
                 Array.IndexOf(_skillIds, "knowledge_management") >= 0;
 
@@ -500,7 +537,7 @@ namespace NPCLife.Agent
                         sb.AppendLine();
                         sb.AppendLine("## 缺失知识条目");
                         sb.AppendLine();
-                        sb.AppendLine("以下关键词在当前知识库中没有记录。在开始叙事工作之前，请先使用 learn_term 逐一为它们创建知识条目。");
+                        sb.AppendLine("以下词条在当前知识库中没有记录。在开始叙事工作之前，请先使用 learn_term 逐一创建。");
                         sb.AppendLine("你可以先用 lookup_term 查询相似词条、用 character_query / event_query 了解关联背景来辅助推断释义。");
                         sb.AppendLine();
                         foreach (var kw in missed)
@@ -531,6 +568,7 @@ namespace NPCLife.Agent
 
             sb.AppendLine();
             sb.AppendLine("请审查事件列表，挑选值得发展的事件，使用 create_workspace / branch_workspace 等工具创建剧情线工作空间。");
+            sb.AppendLine("如果工作空间上下文中包含 focusCharacterIds（导演指定的聚焦角色），请优先围绕这些角色展开叙事。");
 
             if (_contextProvider != null)
             {
