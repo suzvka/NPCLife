@@ -26,9 +26,6 @@ namespace NPCLife.Core
         /// <summary>列出全部词条。</summary>
         IReadOnlyList<KnowledgeEntry> ListAll();
 
-        /// <summary>按语义标签筛选词条。命中任一标签即匹配。</summary>
-        IReadOnlyList<KnowledgeEntry> ListByTags(IReadOnlyList<string> tags);
-
         /// <summary>按前缀列举词条。</summary>
         IReadOnlyList<KnowledgeEntry> ListByPrefix(string prefix);
     }

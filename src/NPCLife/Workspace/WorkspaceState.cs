@@ -14,9 +14,9 @@ namespace NPCLife.Workspace
         /// <summary>编剧：创作叙事内容（push_round），无分支/合并权。</summary>
         Screenwriter,
 
-        /// <summary>临时任务代理：处理日常对话、突发独立事件。与编剧同构（push_round），
+        /// <summary>即兴编剧：处理日常对话、突发独立事件。与编剧同构（push_round），
         /// 但无剧情上下文/前情提要，无 signal 上报。由预注册定时器事件驱动快速响应。</summary>
-        Freelancer
+        Improviser
     }
 
     /// <summary>
@@ -113,9 +113,6 @@ namespace NPCLife.Workspace
 
         /// <summary>导演指定的本轮聚焦角色 ID 列表。每次 route_events 覆盖更新。</summary>
         public List<string> FocusCharacterIds;
-
-        /// <summary>语义标签（如 "CombatAftermath", "RomanceArc"）。</summary>
-        public List<string> Tags;
 
         /// <summary>Agent 写作日志：按轮次的 recap + narrative 列表。</summary>
         public List<WorkspaceRound> Rounds;

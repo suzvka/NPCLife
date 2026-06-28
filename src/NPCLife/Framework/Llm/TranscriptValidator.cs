@@ -87,16 +87,27 @@ namespace NPCLife.Framework.Llm
                 }
                 else if (msg.Role == "tool")
                 {
-                    // Rule 4: tool 消息必须紧跟在带 tool_calls 的 assistant 之后
-                    if (i == 0 || messages[i - 1].Role != "assistant")
+                    // Rule 4: tool 消息必须出现在 assistant (带 tool_calls) 之后
+                    // 允许多个连续的 tool 消息（同属一个 assistant turn）
+                    if (i == 0)
+                        return ValidationResult.Fail(
+                            $"Tool message at index {i} not preceded by assistant");
+                    
+                    // 向前查找最近的非 tool 消息
+                    int prevIdx = i - 1;
+                    while (prevIdx >= 0 && messages[prevIdx].Role == "tool")
+                        prevIdx--;
+                    
+                    if (prevIdx < 0 || messages[prevIdx].Role != "assistant")
                         return ValidationResult.Fail(
                             $"Tool message at index {i} not preceded by assistant");
                 }
             }
 
-            // Rule 5: transcript 不得以未完成的 tool 结果结尾
-            if (messages[messages.Count - 1].Role == "tool")
-                return ValidationResult.Fail("Transcript ends with tool result — assistant response pending");
+            // Rule 5: （已废弃）循环中间状态下 transcript 以 tool result 结尾是正常的，
+            // 因为 LLM 尚未回复。仅在最终 transcript 检查时才有意义。
+            // if (messages[messages.Count - 1].Role == "tool")
+            //     return ValidationResult.Fail("Transcript ends with tool result — assistant response pending");
 
             return ValidationResult.Ok();
         }

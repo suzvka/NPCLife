@@ -24,7 +24,6 @@ namespace NPCLife.Tests.Framework
             {
                 EventID = "test_001",
                 DefName = "TestEvent",
-                Tags = new List<string> { "Test", "Combat" },
                 Tick = 5000,
                 Importance = 3f,
                 MapHint = "Map:123",
@@ -39,9 +38,7 @@ namespace NPCLife.Tests.Framework
 
             Assert.Contains("\"eventId\":\"test_001\"", json);
             Assert.Contains("\"defName\":\"TestEvent\"", json);
-            Assert.Contains("\"Test\"", json);
-            Assert.Contains("\"Combat\"", json);
-            Assert.Contains("\"tick\":5000", json);
+            // tick is intentionally not serialized to JSON (internal only)
             Assert.Contains("\"importance\":3", json);
             Assert.Contains("\"pawn_1\"", json);
             Assert.Contains("\"Alice\"", json);
@@ -440,12 +437,11 @@ namespace NPCLife.Tests.Framework
         {
             public string EventID { get; set; }
             public string DefName { get; set; }
-            public IReadOnlyList<string> Tags { get; set; } = new List<string>();
-            public IReadOnlyList<string> Keywords { get; set; } = new List<string>();
             public int Tick { get; set; }
             public float Importance { get; set; } = 1f;
             public IReadOnlyList<EventActorRef> Actors { get; set; } = new List<EventActorRef>();
             public string MapHint { get; set; } = "";
+            public string TimeLabel { get; set; } = "";
             public IDictionary<string, string> Payload { get; set; } = new Dictionary<string, string>();
         }
     }

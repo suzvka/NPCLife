@@ -16,11 +16,11 @@ namespace NPCLife.Driver
         /// <summary>导演专用重要度阈值：pending 事件总重要度达到此值时触发激活。</summary>
         public float DirectorImportanceThreshold = 15f;
 
-        /// <summary>临时编剧专用事件数量阈值。</summary>
-        public int FreelancerCountThreshold = 5;
+        /// <summary>即兴编剧专用事件数量阈值。</summary>
+        public int ImproviserCountThreshold = 5;
 
-        /// <summary>临时编剧专用重要度阈值。</summary>
-        public float FreelancerImportanceThreshold = 15f;
+        /// <summary>即兴编剧专用重要度阈值。</summary>
+        public float ImproviserImportanceThreshold = 15f;
 
         /// <summary>剧情编剧专用事件数量阈值。</summary>
         public int ScreenwriterCountThreshold = 5;
@@ -28,14 +28,15 @@ namespace NPCLife.Driver
         /// <summary>剧情编剧专用重要度阈值。</summary>
         public float ScreenwriterImportanceThreshold = 15f;
 
-        // ---- 定时器脉冲（ticks，0 = 禁用） ----
+        // ---- 定时器脉冲（抽象积分阈值，0 = 禁用） ----
 
-        /// <summary>导演定时器脉冲间隔（游戏 ticks）。0 表示禁用。
-        /// 每间隔触发时向导演工作空间事件池注入一个 TimerPulse 事件。</summary>
+        /// <summary>导演定时器脉冲间隔（抽象积分）。0 表示禁用。
+        /// 适配层负责按积分算法累加，达到此阈值时向导演工作空间事件池注入一个 TimerPulse 事件。
+        /// 框架不关心积分来源与单位——只关心"攒够 N 分就触发"。</summary>
         public int DirectorTimerInterval = 0;
 
-        /// <summary>临时编剧定时器脉冲间隔（游戏 ticks）。0 表示禁用。</summary>
-        public int FreelancerTimerInterval = 0;
+        /// <summary>即兴编剧定时器脉冲间隔（抽象积分）。0 表示禁用。</summary>
+        public int ImproviserTimerInterval = 0;
 
         // ---- 通用配置 ----
 
@@ -59,8 +60,8 @@ namespace NPCLife.Driver
                     return DirectorCountThreshold;
                 case Workspace.WorkspaceRole.Screenwriter:
                     return ScreenwriterCountThreshold;
-                case Workspace.WorkspaceRole.Freelancer:
-                    return FreelancerCountThreshold;
+                case Workspace.WorkspaceRole.Improviser:
+                    return ImproviserCountThreshold;
                 default:
                     return DirectorCountThreshold;
             }
@@ -77,15 +78,16 @@ namespace NPCLife.Driver
                     return DirectorImportanceThreshold;
                 case Workspace.WorkspaceRole.Screenwriter:
                     return ScreenwriterImportanceThreshold;
-                case Workspace.WorkspaceRole.Freelancer:
-                    return FreelancerImportanceThreshold;
+                case Workspace.WorkspaceRole.Improviser:
+                    return ImproviserImportanceThreshold;
                 default:
                     return DirectorImportanceThreshold;
             }
         }
 
         /// <summary>
-        /// 获取指定角色的定时器脉冲间隔（ticks）。0 表示禁用。
+        /// 获取指定角色的定时器脉冲间隔（抽象积分）。0 表示禁用。
+        /// 框架不关心此阈值的单位——适配层负责按积分算法换算后累加。
         /// </summary>
         public int GetTimerInterval(Workspace.WorkspaceRole role)
         {
@@ -93,8 +95,8 @@ namespace NPCLife.Driver
             {
                 case Workspace.WorkspaceRole.Director:
                     return DirectorTimerInterval;
-                case Workspace.WorkspaceRole.Freelancer:
-                    return FreelancerTimerInterval;
+                case Workspace.WorkspaceRole.Improviser:
+                    return ImproviserTimerInterval;
                 default:
                     return 0; // Screenwriter 不支持定时器
             }

@@ -17,8 +17,8 @@ namespace NPCLife.Tests.Driver
             Assert.Equal(15f, config.DirectorImportanceThreshold);
             Assert.Equal(5, config.ScreenwriterCountThreshold);
             Assert.Equal(15f, config.ScreenwriterImportanceThreshold);
-            Assert.Equal(5, config.FreelancerCountThreshold);
-            Assert.Equal(15f, config.FreelancerImportanceThreshold);
+            Assert.Equal(5, config.ImproviserCountThreshold);
+            Assert.Equal(15f, config.ImproviserImportanceThreshold);
             Assert.Equal(200, config.RecentHistoryCapacity);
             Assert.Equal(10, config.MaxAgentRounds);
         }
@@ -29,12 +29,12 @@ namespace NPCLife.Tests.Driver
             var config = new DriverConfig
             {
                 DirectorImportanceThreshold = 10f,
-                FreelancerImportanceThreshold = 20f,
+                ImproviserImportanceThreshold = 20f,
                 ScreenwriterImportanceThreshold = 30f
             };
 
             Assert.Equal(10f, config.GetEffectiveImportanceThreshold(Workspace.WorkspaceRole.Director));
-            Assert.Equal(20f, config.GetEffectiveImportanceThreshold(Workspace.WorkspaceRole.Freelancer));
+            Assert.Equal(20f, config.GetEffectiveImportanceThreshold(Workspace.WorkspaceRole.Improviser));
             Assert.Equal(30f, config.GetEffectiveImportanceThreshold(Workspace.WorkspaceRole.Screenwriter));
         }
 
@@ -44,12 +44,12 @@ namespace NPCLife.Tests.Driver
             var config = new DriverConfig
             {
                 DirectorCountThreshold = 3,
-                FreelancerCountThreshold = 7,
+                ImproviserCountThreshold = 7,
                 ScreenwriterCountThreshold = 10
             };
 
             Assert.Equal(3, config.GetEffectiveCountThreshold(Workspace.WorkspaceRole.Director));
-            Assert.Equal(7, config.GetEffectiveCountThreshold(Workspace.WorkspaceRole.Freelancer));
+            Assert.Equal(7, config.GetEffectiveCountThreshold(Workspace.WorkspaceRole.Improviser));
             Assert.Equal(10, config.GetEffectiveCountThreshold(Workspace.WorkspaceRole.Screenwriter));
         }
     }

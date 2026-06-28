@@ -12,7 +12,7 @@ namespace NPCLife.Framework
     {
         Director,
         Screenwriter,
-        Freelancer
+        Improviser
     }
 
     /// <summary>
@@ -260,25 +260,25 @@ namespace NPCLife.Framework
                     {
                         ["director"] = roleTotalInput[(int)AgentRole.Director],
                         ["screenwriter"] = roleTotalInput[(int)AgentRole.Screenwriter],
-                        ["freelancer"] = roleTotalInput[(int)AgentRole.Freelancer]
+                        ["improviser"] = roleTotalInput[(int)AgentRole.Improviser]
                     },
                     OutputByRole = new Dictionary<string, int>
                     {
                         ["director"] = roleTotalOutput[(int)AgentRole.Director],
                         ["screenwriter"] = roleTotalOutput[(int)AgentRole.Screenwriter],
-                        ["freelancer"] = roleTotalOutput[(int)AgentRole.Freelancer]
+                        ["improviser"] = roleTotalOutput[(int)AgentRole.Improviser]
                     },
                     CacheReadByRole = new Dictionary<string, int>
                     {
                         ["director"] = roleTotalCacheRead[(int)AgentRole.Director],
                         ["screenwriter"] = roleTotalCacheRead[(int)AgentRole.Screenwriter],
-                        ["freelancer"] = roleTotalCacheRead[(int)AgentRole.Freelancer]
+                        ["improviser"] = roleTotalCacheRead[(int)AgentRole.Improviser]
                     },
                     LlmCallsByRole = new Dictionary<string, int>
                     {
                         ["director"] = roleLlmCalls[(int)AgentRole.Director],
                         ["screenwriter"] = roleLlmCalls[(int)AgentRole.Screenwriter],
-                        ["freelancer"] = roleLlmCalls[(int)AgentRole.Freelancer]
+                        ["improviser"] = roleLlmCalls[(int)AgentRole.Improviser]
                     }
                 };
                 snap.Tokens.TotalInput = roleTotalInput.Sum();
@@ -322,14 +322,14 @@ namespace NPCLife.Framework
                 // Agent Loop
                 int totalActivations = roleActivations[(int)AgentRole.Director]
                     + roleActivations[(int)AgentRole.Screenwriter]
-                    + roleActivations[(int)AgentRole.Freelancer];
+                    + roleActivations[(int)AgentRole.Improviser];
                 snap.AgentLoops = new MetricsSnapshot.AgentLoopStat
                 {
                     ActivationsByRole = new Dictionary<string, int>
                     {
                         ["director"] = roleActivations[(int)AgentRole.Director],
                         ["screenwriter"] = roleActivations[(int)AgentRole.Screenwriter],
-                        ["freelancer"] = roleActivations[(int)AgentRole.Freelancer]
+                        ["improviser"] = roleActivations[(int)AgentRole.Improviser]
                     },
                     TotalRounds = roleTotalRounds.Sum(),
                     AvgRoundsPerActivation = totalActivations > 0

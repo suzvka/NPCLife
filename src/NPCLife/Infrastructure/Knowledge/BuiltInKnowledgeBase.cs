@@ -49,9 +49,6 @@ namespace NPCLife.Infrastructure.Knowledge
         {
             if (entry == null || string.IsNullOrEmpty(entry.Term)) return;
 
-            if (entry.ContextTags == null)
-                entry.ContextTags = new List<string>();
-
             _entries[entry.Term] = entry;
             SaveToStore();
         }
@@ -76,21 +73,6 @@ namespace NPCLife.Infrastructure.Knowledge
 
             return _entries.Values
                 .Where(e => e.Term.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(e => e.Term)
-                .ToList();
-        }
-
-        /// <summary>
-        /// 按语义标签筛选词条。
-        /// </summary>
-        public IReadOnlyList<KnowledgeEntry> ListByTags(IReadOnlyList<string> tags)
-        {
-            if (tags == null || tags.Count == 0)
-                return ListAll();
-
-            return _entries.Values
-                .Where(e => e.ContextTags != null
-                    && tags.Any(t => e.ContextTags.Contains(t, StringComparer.OrdinalIgnoreCase)))
                 .OrderBy(e => e.Term)
                 .ToList();
         }
@@ -166,10 +148,6 @@ namespace NPCLife.Infrastructure.Knowledge
             w.Prop("term", entry.Term ?? "");
             w.Prop("definition", entry.Definition ?? "");
             w.Prop("source", entry.Source ?? "");
-            w.Prop("confidence", entry.Confidence, "F3");
-
-            if (entry.ContextTags != null && entry.ContextTags.Count > 0)
-                w.Array("contextTags", entry.ContextTags);
 
             return w.Close();
         }
@@ -182,22 +160,8 @@ namespace NPCLife.Infrastructure.Knowledge
             {
                 Term = data.TryGetValue("term", out var v) ? v : null,
                 Definition = data.TryGetValue("definition", out v) ? v : "",
-                Source = data.TryGetValue("source", out v) ? v : "LegacyCache",
-                Confidence = data.TryGetValue("confidence", out v) && float.TryParse(v,
-                    System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    out var conf) ? conf : 0.5f
+                Source = data.TryGetValue("source", out v) ? v : "LegacyCache"
             };
-
-            // ContextTags: JSON 字符串数组
-            if (data.TryGetValue("contextTags", out var tagsJson) && !string.IsNullOrEmpty(tagsJson))
-            {
-                entry.ContextTags = JsonParser.ParseStringArray(tagsJson);
-            }
-            else
-            {
-                entry.ContextTags = new List<string>();
-            }
 
             return entry;
         }

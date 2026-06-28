@@ -40,10 +40,10 @@ namespace NPCLife.Infrastructure
                 ?? throw new ArgumentNullException(nameof(resolver));
             _logger = logger;
         
-            // 订阅 EventBus
+            // 仅订阅 script.ready（轮次完成时批量投递），避免逐行 + 整批的双重投递
             _unsubscribe = EventBus.Subscribe(FrameworkEvents.ScriptReady, OnScriptReady, priority: 50);
-            _unsubscribeLine = EventBus.Subscribe(FrameworkEvents.ScriptLineReady, OnScriptLineReady, priority: 50);
-            _logger?.Message("[NPCLife.ScriptDelivery] Initialized and subscribed to script.ready + script.line_ready.");
+            _unsubscribeLine = null; // 不再订阅 script.line_ready
+            _logger?.Message("[NPCLife.ScriptDelivery] Initialized and subscribed to script.ready (batch-only mode).");
         }
 
         // ================================================================

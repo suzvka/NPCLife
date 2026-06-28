@@ -17,7 +17,7 @@ namespace NPCLife.Core
         bool TryLookup(string term, out KnowledgeEntry entry);
 
         /// <summary>
-        /// 存储/覆盖知识条目。若 Term 已存在则合并（取最高 Confidence，更新 Definition）。
+        /// 存储/覆盖知识条目。若 Term 已存在则直接覆盖。
         /// </summary>
         /// <param name="entry">知识条目。</param>
         void Store(KnowledgeEntry entry);
@@ -34,14 +34,6 @@ namespace NPCLife.Core
         /// <param name="prefix">前缀字符串，留空表示全部。</param>
         /// <returns>匹配的词条列表。</returns>
         IReadOnlyList<KnowledgeEntry> ListByPrefix(string prefix);
-
-        /// <summary>
-        /// 按语义标签筛选词条。命中任一标签即匹配。
-        /// 用于按领域（Combat / Lore / Social 等）过滤知识库内容。
-        /// </summary>
-        /// <param name="tags">标签列表。null 或空列表时返回全部。</param>
-        /// <returns>匹配的词条列表。</returns>
-        IReadOnlyList<KnowledgeEntry> ListByTags(IReadOnlyList<string> tags);
 
         /// <summary>
         /// 列出全部词条。

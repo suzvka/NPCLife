@@ -58,29 +58,6 @@ namespace NPCLife.Tests.Cards
         }
 
         // ================================================================
-        // IGameEvent Tags (string-based)
-        // ================================================================
-
-        [Fact]
-        public void IGameEvent_Tags_SupportMultipleLabels()
-        {
-            // 标签列表为 LLM 提供丰富语义，无需枚举
-            var tags = new[] { "Raid", "Combat", "TribalSappers" };
-
-            Assert.Equal(3, tags.Length);
-            Assert.Contains("Raid", tags);
-            Assert.Contains("Combat", tags);
-            Assert.Contains("TribalSappers", tags);
-        }
-
-        [Fact]
-        public void IGameEvent_Tags_CanBeEmpty()
-        {
-            var tags = new string[0];
-            Assert.Empty(tags);
-        }
-
-        // ================================================================
         // CharacterCard DTO
         // ================================================================
 
