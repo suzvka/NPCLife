@@ -1,27 +1,42 @@
-## 1. 核心架构与模式
-该中间件采用**纯代码 POCO（Plain Old CLR Object）**作为配置载体，摒弃了传统的 `appsettings.json` 或环境变量自动绑定机制。配置系统基于**手动序列化/反序列化**逻辑，通过自定义的 `JsonWriter` 和 `JsonParser` 实现轻量级的 JSON 交互。
+NPCLife 采用了一套轻量级、无外部依赖的配置管理系统，核心设计理念是**纯 POCO（Plain Old CLR Object）数据类**配合**自定义 JSON 序列化/反序列化**。该系统不依赖 .NET 标准的 `Microsoft.Extensions.Configuration` 或 `appsettings.json`，而是通过代码定义的默认值、JSON 字符串加载以及运行时对象修改来实现配置的层级管理。
 
-主要设计模式包括：
-- **分层配置结构**：顶层 `FrameworkConfig` 聚合了驱动参数 (`DriverConfig`)、诊断开关 (`DiagnosticSection`) 和功能特性 (`FeatureToggleSection`)。
-- **冻结机制 (Freeze Pattern)**：`FrameworkConfig` 支持 `Freeze()` 操作，一旦调用，任何修改尝试都会抛出 `InvalidOperationException`，确保运行时配置的不可变性。
-- **缓存即真相 (Cache-as-Truth)**：针对提示词 (`PromptConfig`)，采用静态懒加载从 EmbeddedResource 读取默认值，运行时修改仅影响内存中的实例字段。
-- **凭证隔离**：LLM 访问凭证 (`LlmCredential`) 与通用配置解耦，通过 `CredentialRegistry` 进行独立管理和持久化。
+### 1. 核心架构与组件
 
-## 2. 关键配置文件与类
-- **`src/NPCLife/Framework/FrameworkConfig.cs`**：全局配置入口，包含校验逻辑 (`Validate`) 和合并优先级说明（默认值 < JSON 文件 < 代码覆盖）。
-- **`src/NPCLife/Driver/DriverConfig.cs`**：定义 Agent 的行为阈值（如事件触发数量、重要度）和定时器脉冲间隔。
-- **`src/NPCLife/Driver/PromptConfig.cs`**：管理 LLM 的系统提示词（System Prompt）和采样参数（Temperature），支持从资源文件恢复默认值。
-- **`src/NPCLife/Framework/Llm/LlmConfig.cs`**：定义 LLM API 的基础连接信息（BaseUrl, ModelName, ProviderType）。
-- **`src/NPCLife/Infrastructure/Llm/CredentialRegistry.cs`**：负责多模型凭证的注册、激活顺序管理及通过 `IStorage` 接口进行的持久化。
+配置系统主要由以下几个核心部分组成：
 
-## 3. 配置加载与持久化流程
-1. **初始化**：通过 `CreateDefault()` 生成包含硬编码默认值的配置实例。
-2. **加载**：宿主程序通过 `FromJson(string)` 方法将存储的 JSON 字符串解析并覆盖默认值。若解析失败，则静默回退到默认配置。
-3. **持久化**：配置对象通过 `ToJson()` 序列化为字符串，由宿主程序决定存储位置（如本地文件或游戏存档）。
-4. **凭证管理**：`CredentialRegistry` 在构造时接收初始 JSON，并在每次别名变更时通过回调委托自动触发持久化。
+*   **框架全局配置 (`FrameworkConfig`)**：
+    *   作为配置的根节点，包含 `DriverConfig`（驱动参数）和 `DiagnosticSection`（诊断开关）。
+    *   **不可变性保护**：提供 `Freeze()` 方法，一旦调用，任何修改尝试都会抛出 `InvalidOperationException`，确保运行时配置的安全性和一致性。
+    *   **校验机制**：内置 `Validate()` 方法，检查阈值、容量等参数的合法性，防止非法配置导致运行时错误。
 
-## 4. 开发者规范
-- **禁止直接修改冻结配置**：在框架初始化完成后，严禁尝试修改 `FrameworkConfig` 的属性，必须先检查 `IsFrozen` 状态。
-- **使用 CreateDefault 工厂方法**：创建新配置实例时，应始终使用各配置类的 `CreateDefault()` 方法，以确保获得最新的硬编码默认值。
-- **敏感信息管理**：API Key 等敏感信息不应硬编码在 `LlmConfig` 中，而应通过 `CredentialRegistry` 进行管理，利用其隔离特性提高安全性。
-- **扩展配置项**：新增配置字段时，必须同步更新 `ToJson` 和 `FromJson` 中的序列化/反序列化逻辑，并在 `Validate` 方法中添加合法性校验。
+*   **驱动配置 (`DriverConfig`)**：
+    *   控制 Agent 的行为参数，如事件触发阈值（按角色区分：Director, Screenwriter, Improviser）、定时器脉冲间隔、历史缓冲区容量等。
+    *   提供 `GetEffective...` 方法，根据当前工作空间的角色动态获取对应的阈值配置。
+
+*   **LLM 配置与凭证 (`LlmConfig` / `LlmCredential`)**：
+    *   `LlmConfig`：定义 LLM API 的基础访问参数（BaseUrl, ApiKey, ModelName, ProviderType）。
+    *   `LlmCredential`：纯数据传递对象，用于运行时凭证管理，支持多凭证激活顺序（Fallback 链路）。
+    *   **持久化注册表 (`CredentialRegistry`)**：实现 `ICredentialManager` 接口，管理多个 LLM 凭证的 CRUD 操作及激活状态。它通过宿主提供的委托（`persistAction`）将配置序列化为 JSON 并持久化到存储后端（如文件系统或数据库）。
+
+*   **提示词配置 (`PromptConfig`)**：
+    *   通过嵌入式资源（Embedded Resource）加载默认的系统提示词（`.txt` 文件）。
+    *   采用静态只读属性暴露，确保基座提示词不可被外部随意覆盖，仅允许在此基础上追加指令。
+
+### 2. 配置加载与分层策略
+
+配置的分层与合并遵循以下优先级（从低到高）：
+1.  **代码默认值**：各配置类中的字段初始值或 `CreateDefault()` 工厂方法。
+2.  **JSON 配置文件**：通过 `FrameworkConfig.FromJson(string json)` 解析外部传入的 JSON 字符串，覆盖默认值。
+3.  **运行时代码覆盖**：在配置冻结前，通过代码直接修改属性值。
+
+**序列化实现**：
+*   项目使用了自定义的 `JsonWriter` 和 `JsonParser` 进行轻量级 JSON 处理，避免引入庞大的第三方 JSON 库。
+*   `FrameworkConfig.ToJson()` 和 `CredentialRegistry.SerializeState()` 负责将配置对象转换为 JSON 字符串。
+*   `FrameworkConfig.FromJson()` 和 `CredentialRegistry.DeserializeState()` 负责从 JSON 字符串恢复配置状态，并在解析失败时优雅地回退到默认值。
+
+### 3. 开发者规范
+
+*   **配置不可变性**：在初始化完成后，务必调用 `FrameworkConfig.Freeze()` 以锁定配置，防止运行时意外修改。
+*   **凭证管理**：不要硬编码 API Key。应使用 `CredentialRegistry` 管理凭证，并通过宿主环境提供的持久化委托保存配置。
+*   **扩展配置**：若需新增配置项，应在相应的 POCO 类中添加字段，并同步更新 `ToJson` 和 `FromJson` 中的序列化/反序列化逻辑。
+*   **提示词定制**：禁止直接修改 `PromptConfig` 中的嵌入式资源。应在获取默认提示词后，通过字符串拼接或模板引擎追加自定义指令。

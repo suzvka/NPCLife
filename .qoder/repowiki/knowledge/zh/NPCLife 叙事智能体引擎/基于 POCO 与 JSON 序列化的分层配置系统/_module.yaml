@@ -5,9 +5,8 @@ scope: []
 source_files:
     - src/NPCLife/Framework/FrameworkConfig.cs
     - src/NPCLife/Driver/DriverConfig.cs
-    - src/NPCLife/Framework/Llm/LlmConfig.cs
-    - src/NPCLife/Framework/Llm/LlmCredential.cs
-    - src/NPCLife/Infrastructure/Llm/CredentialRegistry.cs
     - src/NPCLife/Driver/PromptConfig.cs
+    - src/NPCLife/Framework/Llm/LlmConfig.cs
+    - src/NPCLife/Infrastructure/Llm/CredentialRegistry.cs
 depends_on: []
 related_to: []

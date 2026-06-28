@@ -3,11 +3,11 @@ schema_version: 1
 locale: zh-CN
 branch: master
 nodes_managed: true
-exported_at: "2026-06-28T18:08:49Z"
+exported_at: "2026-06-28T20:28:09Z"
 modules:
     "":
-        dir_name: LLM 驱动的多智能体叙事引擎
-        title: LLM 驱动的多智能体叙事引擎
+        dir_name: NPCLife 叙事智能体引擎
+        title: NPCLife 叙事智能体引擎
         scope:
             - README.md
             - .gitignore
@@ -118,7 +118,12 @@ modules:
             - tests\NPCLife.Tests\Helpers\LogTestBase.cs
             - tests\NPCLife.Tests\NPCLife.Tests.csproj
         source_files: []
-        children: []
+        children:
+            - build_system
+            - configuration_system
+            - dependency_management
+            - error_handling
+            - logging_system
         depends_on: []
         related_to: []
     build_system:
@@ -168,7 +173,8 @@ modules:
             - src/NPCLife/Framework/AgentPipeline.cs
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: logging_system
     logging_system:
         dir_name: 日志系统架构与规范
         title: 日志系统架构与规范
@@ -183,4 +189,5 @@ modules:
             - src/NPCLife/Infrastructure/Llm/LlmAccessor.cs
         children: []
         depends_on: []
-        related_to: []
+        related_to:
+            - path: error_handling

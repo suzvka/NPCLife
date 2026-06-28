@@ -1,0 +1,15 @@
+schema_version: 1
+module_path: logging_system
+title: 日志系统架构与规范
+scope: []
+source_files:
+    - src/NPCLife/Framework/ILogger.cs
+    - src/NPCLife/Framework/ErrorHandler.cs
+    - src/NPCLife/Framework/AgentPipeline.cs
+    - src/NPCLife/Framework/EventBus.cs
+    - src/NPCLife/Framework/LifecycleManager.cs
+    - tests/NPCLife.Tests/Helpers/LogTestBase.cs
+    - src/NPCLife/Infrastructure/Llm/LlmAccessor.cs
+depends_on: []
+related_to:
+    - path: error_handling
