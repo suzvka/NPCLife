@@ -17,7 +17,7 @@ namespace NPCLife.Core
         bool TryLookup(string term, out KnowledgeEntry entry);
 
         /// <summary>
-        /// 存储/覆盖知识条目。若 Term 已存在则合并（取最高 Confidence，更新 Definition）。
+        /// 存储/覆盖知识条目。若 Term 已存在则直接覆盖。
         /// </summary>
         /// <param name="entry">知识条目。</param>
         void Store(KnowledgeEntry entry);

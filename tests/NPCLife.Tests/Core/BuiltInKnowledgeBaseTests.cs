@@ -20,7 +20,7 @@ namespace NPCLife.Tests.Core
 
         private static KnowledgeEntry MakeEntry(
             string term, string definition = "def",
-            string source = "Test", float confidence = 0.9f,
+            string source = "Test",
             params string[] tags)
         {
             return new KnowledgeEntry
@@ -28,7 +28,6 @@ namespace NPCLife.Tests.Core
                 Term = term,
                 Definition = definition,
                 Source = source,
-                Confidence = confidence,
                 ContextTags = tags.Length > 0 ? new List<string>(tags) : new List<string>()
             };
         }
@@ -211,9 +210,9 @@ namespace NPCLife.Tests.Core
         public void ListByTags_AnyMatch_ReturnsFiltered()
         {
             var kb = Create();
-            kb.Store(MakeEntry("Sword", "def", "Test", 0.9f, "Weapon", "Melee"));
-            kb.Store(MakeEntry("Bow", "def", "Test", 0.9f, "Weapon", "Ranged"));
-            kb.Store(MakeEntry("Meal", "def", "Test", 0.9f, "Food"));
+            kb.Store(MakeEntry("Sword", "def", "Test", "Weapon", "Melee"));
+            kb.Store(MakeEntry("Bow", "def", "Test", "Weapon", "Ranged"));
+            kb.Store(MakeEntry("Meal", "def", "Test", "Food"));
 
             var weapons = kb.ListByTags(new List<string> { "Weapon" });
             Assert.Equal(2, weapons.Count);
@@ -227,7 +226,7 @@ namespace NPCLife.Tests.Core
         public void ListByTags_CaseInsensitive()
         {
             var kb = Create();
-            kb.Store(MakeEntry("Sword", "def", "Test", 0.9f, "Weapon"));
+            kb.Store(MakeEntry("Sword", "def", "Test", "Weapon"));
 
             var results = kb.ListByTags(new List<string> { "weapon" });
             Assert.Single(results);
@@ -245,8 +244,8 @@ namespace NPCLife.Tests.Core
 
             // Write
             var kb1 = new BuiltInKnowledgeBase(store, logger);
-            kb1.Store(MakeEntry("Raid", "An attack", "GameDef", 1.0f, "Combat"));
-            kb1.Store(MakeEntry("Blight", "Crop disease", "LLM", 0.7f, "Agriculture"));
+            kb1.Store(MakeEntry("Raid", "An attack", "GameDef", "Combat"));
+            kb1.Store(MakeEntry("Blight", "Crop disease", "LLM", "Agriculture"));
 
             // Read back from same store
             var kb2 = new BuiltInKnowledgeBase(store, logger);
@@ -255,12 +254,10 @@ namespace NPCLife.Tests.Core
             Assert.True(kb2.TryLookup("Raid", out var raid));
             Assert.Equal("An attack", raid.Definition);
             Assert.Equal("GameDef", raid.Source);
-            Assert.Equal(1.0f, raid.Confidence);
             Assert.Contains("Combat", raid.ContextTags);
 
             Assert.True(kb2.TryLookup("Blight", out var blight));
             Assert.Equal("Crop disease", blight.Definition);
-            Assert.Equal(0.7f, blight.Confidence, 2);
         }
 
         [Fact]

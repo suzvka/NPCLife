@@ -67,7 +67,7 @@ namespace NPCLife.Tests.Core
             kb.Store(new KnowledgeEntry
             {
                 Term = "Raid", Definition = "An attack", Source = "Test",
-                Confidence = 0.9f, ContextTags = new List<string>()
+                ContextTags = new List<string>()
             });
 
             var result = provider.LookupTerm("Raid");
@@ -92,7 +92,7 @@ namespace NPCLife.Tests.Core
         public void LearnTerm_NewEntry_StoresAndReturnsHit()
         {
             var provider = CreateProvider(out var kb);
-            var result = provider.LearnTerm("Raid", "An attack", 0.8f, "LLM", "Combat");
+            var result = provider.LearnTerm("Raid", "An attack", "LLM", "Combat");
 
             Assert.Contains("\"hit\":true", result);
             Assert.True(kb.TryLookup("Raid", out var entry));
@@ -105,8 +105,8 @@ namespace NPCLife.Tests.Core
         public void LearnTerm_Existing_Overwrites()
         {
             var provider = CreateProvider(out var kb);
-            provider.LearnTerm("Raid", "old", 0.5f);
-            provider.LearnTerm("Raid", "new", 0.9f);
+            provider.LearnTerm("Raid", "old");
+            provider.LearnTerm("Raid", "new");
 
             Assert.True(kb.TryLookup("Raid", out var entry));
             Assert.Equal("new", entry.Definition);
@@ -139,7 +139,7 @@ namespace NPCLife.Tests.Core
             kb.Store(new KnowledgeEntry
             {
                 Term = "Raid", Definition = "An attack event", Source = "Test",
-                Confidence = 1f, ContextTags = new List<string>()
+                ContextTags = new List<string>()
             });
 
             var result = provider.ListKnownTerms();
@@ -154,12 +154,12 @@ namespace NPCLife.Tests.Core
             kb.Store(new KnowledgeEntry
             {
                 Term = "Apple", Definition = "fruit", Source = "Test",
-                Confidence = 1f, ContextTags = new List<string>()
+                ContextTags = new List<string>()
             });
             kb.Store(new KnowledgeEntry
             {
                 Term = "Banana", Definition = "fruit", Source = "Test",
-                Confidence = 1f, ContextTags = new List<string>()
+                ContextTags = new List<string>()
             });
 
             var result = provider.ListKnownTerms(prefix: "A");
@@ -175,7 +175,7 @@ namespace NPCLife.Tests.Core
                 kb.Store(new KnowledgeEntry
                 {
                     Term = $"Term{i}", Definition = "def", Source = "Test",
-                    Confidence = 1f, ContextTags = new List<string>()
+                    ContextTags = new List<string>()
                 });
 
             var result = provider.ListKnownTerms(limit: 3);
@@ -197,7 +197,7 @@ namespace NPCLife.Tests.Core
             kb.Store(new KnowledgeEntry
             {
                 Term = "Raid", Definition = "attack", Source = "Test",
-                Confidence = 1f, ContextTags = new List<string>()
+                ContextTags = new List<string>()
             });
 
             var result = provider.ForgetTerm("Raid");
@@ -224,7 +224,7 @@ namespace NPCLife.Tests.Core
             kb.Store(new KnowledgeEntry
             {
                 Term = "Raid", Definition = "attack", Source = "GameDef",
-                Confidence = 0.95f, ContextTags = new List<string> { "Combat" }
+                ContextTags = new List<string> { "Combat" }
             });
 
             var result = provider.GetTermStats("Raid");

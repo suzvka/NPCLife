@@ -23,14 +23,13 @@ namespace NPCLife.Tests.Core
 
         private static KnowledgeEntry MakeEntry(
             string term, string definition = "def",
-            string source = "Test", float confidence = 0.9f)
+            string source = "Test")
         {
             return new KnowledgeEntry
             {
                 Term = term,
                 Definition = definition,
                 Source = source,
-                Confidence = confidence,
                 ContextTags = new List<string>()
             };
         }
@@ -145,12 +144,12 @@ namespace NPCLife.Tests.Core
             cache.Store(new KnowledgeEntry
             {
                 Term = "Sword", Definition = "weapon", Source = "Test",
-                Confidence = 1f, ContextTags = new List<string> { "Weapon" }
+                ContextTags = new List<string> { "Weapon" }
             });
             cache.Store(new KnowledgeEntry
             {
                 Term = "Meal", Definition = "food", Source = "Test",
-                Confidence = 1f, ContextTags = new List<string> { "Food" }
+                ContextTags = new List<string> { "Food" }
             });
             var svc = Create(cache);
 

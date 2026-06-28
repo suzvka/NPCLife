@@ -82,7 +82,6 @@ namespace NPCLife.Infrastructure.Mcp
         public string LearnTerm(
             [McpParam(Description = "词条名")] string term,
             [McpParam(Description = "释义文本")] string definition,
-            [McpParam(Description = "信心度 0.0~1.0，默认 0.8")] float confidence = 0.8f,
             [McpParam(Description = "来源名，如 LLM / AgentDeduction / Wiki，默认 LLM",
                       Required = McpRequired.False)] string source = "LLM",
             [McpParam(Description = "关联语义标签，逗号分隔，如 Combat,Faction,Lore",
@@ -102,7 +101,6 @@ namespace NPCLife.Infrastructure.Mcp
                     Term = term.Trim(),
                     Definition = definition ?? "",
                     Source = source ?? "LLM",
-                    Confidence = Math.Max(0f, Math.Min(1f, confidence)),
                     ContextTags = ParseTagList(tags)
                 };
 
@@ -263,7 +261,6 @@ namespace NPCLife.Infrastructure.Mcp
             w.Prop("term", entry.Term ?? "");
             w.Prop("definition", entry.Definition ?? "");
             w.Prop("source", entry.Source ?? "");
-            w.Prop("confidence", entry.Confidence, "F2");
             if (entry.ContextTags != null && entry.ContextTags.Count > 0)
                 w.Array("contextTags", entry.ContextTags);
         }
@@ -288,7 +285,6 @@ namespace NPCLife.Infrastructure.Mcp
             w.Prop("term", entry.Term ?? "");
             w.Prop("definitionPreview", Truncate(entry.Definition ?? "", 120));
             w.Prop("source", entry.Source ?? "");
-            w.Prop("confidence", entry.Confidence, "F2");
             if (entry.ContextTags != null && entry.ContextTags.Count > 0)
                 w.Array("contextTags", entry.ContextTags);
             return w.Close();
@@ -317,7 +313,6 @@ namespace NPCLife.Infrastructure.Mcp
             w.Prop("hit", true);
             w.Prop("term", entry.Term ?? "");
             w.Prop("source", entry.Source ?? "");
-            w.Prop("confidence", entry.Confidence, "F3");
             if (entry.ContextTags != null && entry.ContextTags.Count > 0)
                 w.Array("contextTags", entry.ContextTags);
             return w.Close();

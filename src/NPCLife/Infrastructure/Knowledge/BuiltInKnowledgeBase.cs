@@ -166,7 +166,6 @@ namespace NPCLife.Infrastructure.Knowledge
             w.Prop("term", entry.Term ?? "");
             w.Prop("definition", entry.Definition ?? "");
             w.Prop("source", entry.Source ?? "");
-            w.Prop("confidence", entry.Confidence, "F3");
 
             if (entry.ContextTags != null && entry.ContextTags.Count > 0)
                 w.Array("contextTags", entry.ContextTags);
@@ -182,11 +181,7 @@ namespace NPCLife.Infrastructure.Knowledge
             {
                 Term = data.TryGetValue("term", out var v) ? v : null,
                 Definition = data.TryGetValue("definition", out v) ? v : "",
-                Source = data.TryGetValue("source", out v) ? v : "LegacyCache",
-                Confidence = data.TryGetValue("confidence", out v) && float.TryParse(v,
-                    System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    out var conf) ? conf : 0.5f
+                Source = data.TryGetValue("source", out v) ? v : "LegacyCache"
             };
 
             // ContextTags: JSON 字符串数组
