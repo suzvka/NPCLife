@@ -24,9 +24,6 @@ namespace NPCLife.Framework.Mcp
             var w = new JsonWriter(512);
             w.Prop("eventId", evt.EventID);
             w.Prop("defName", evt.DefName);
-            // tick 不输出给 LLM，仅保留为内部实现细节
-            if (!string.IsNullOrEmpty(evt.TimeLabel))
-                w.Prop("time", evt.TimeLabel);
             w.Prop("importance", evt.Importance, "F2");
             w.Prop("mapHint", evt.MapHint);
 
@@ -77,7 +74,6 @@ namespace NPCLife.Framework.Mcp
                 EventID = dict.TryGetValue("eventId", out var v) ? v : "",
                 DefName = dict.TryGetValue("defName", out v) ? v : "",
                 Tick = dict.TryGetValue("tick", out v) && int.TryParse(v, out var tick) ? tick : 0,
-                TimeLabel = dict.TryGetValue("timeLabel", out v) ? v : "",
                 Importance = dict.TryGetValue("importance", out v) && float.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var imp) ? imp : 0f,
                 MapHint = dict.TryGetValue("mapHint", out v) ? v : "",
                 Actors = DeserializeActors(dict.TryGetValue("actors", out v) ? v : "[]"),

@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: ""
-title: NPC 叙事生成与多智能体协作框架
+title: LLM 驱动的多智能体叙事引擎
 scope:
     - README.md
     - .gitignore

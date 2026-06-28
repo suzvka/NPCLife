@@ -31,14 +31,7 @@ namespace NPCLife.Infrastructure.Mcp
 
         public IReadOnlyList<McpTool> GetTools()
         {
-            return new McpTool[]
-            {
-                McpTool.FromMethod(typeof(SystemMcpProvider).GetMethod(nameof(ListSkills)), this),
-                McpTool.FromMethod(typeof(SystemMcpProvider).GetMethod(nameof(ActivateSkill)), this),
-                McpTool.FromMethod(typeof(SystemMcpProvider).GetMethod(nameof(DeactivateSkill)), this),
-                McpTool.FromMethod(typeof(SystemMcpProvider).GetMethod(nameof(GetCurrentTime)), this),
-                McpTool.FromMethod(typeof(SystemMcpProvider).GetMethod(nameof(Abort)), this),
-            };
+            return McpTool.ScanAllFrom(this);
         }
 
         /// <summary>

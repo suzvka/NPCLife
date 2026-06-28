@@ -229,7 +229,6 @@ namespace NPCLife.Workspace
                 w.Array("mergedFromIds", ws.MergedFromIds);
             if (ws.FocusCharacterIds != null && ws.FocusCharacterIds.Count > 0)
                 w.Array("focusCharacterIds", ws.FocusCharacterIds);
-            w.Array("tags", ws.Tags);
             w.Prop("createdAt", ws.CreatedAt ?? "");
             w.Prop("lastActivityAt", ws.LastActivityAt ?? "");
             if (ws.Outcome != null)

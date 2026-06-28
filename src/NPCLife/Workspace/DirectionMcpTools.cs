@@ -64,7 +64,7 @@ namespace NPCLife.Workspace
 
                 var tagList = ParseStringList(tags);
 
-                var ws = manager.Create(label, tagList, WorkspaceRole.Director);
+                var ws = manager.Create(label, WorkspaceRole.Director);
                 return SerializeDirectorView(ws);
             }
             catch (Exception e)
@@ -382,7 +382,6 @@ namespace NPCLife.Workspace
                 w.Array("mergedFromIds", ws.MergedFromIds);
             if (ws.FocusCharacterIds != null && ws.FocusCharacterIds.Count > 0)
                 w.Array("focusCharacterIds", ws.FocusCharacterIds);
-            w.Array("tags", ws.Tags);
             w.Prop("roundCount", ws.Rounds?.Count ?? 0);
             w.Prop("createdAt", ws.CreatedAt ?? "");
             w.Prop("lastActivityAt", ws.LastActivityAt ?? "");
@@ -427,7 +426,6 @@ namespace NPCLife.Workspace
             w.Prop("roundCount", ws.Rounds?.Count ?? 0);
             if (ws.FocusCharacterIds != null && ws.FocusCharacterIds.Count > 0)
                 w.Array("focusCharacterIds", ws.FocusCharacterIds);
-            w.Array("tags", ws.Tags);
             w.Prop("createdAt", ws.CreatedAt ?? "");
             w.Prop("lastActivityAt", ws.LastActivityAt ?? "");
             if (ws.Outcome != null)

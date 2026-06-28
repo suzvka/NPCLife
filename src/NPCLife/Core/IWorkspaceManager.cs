@@ -16,7 +16,7 @@ namespace NPCLife.Core
         // --- CRUD（5 方法） ---
 
         /// <summary>创建新的工作空间。</summary>
-        IWorkspace Create(string label, List<string> tags, WorkspaceRole createdByRole);
+        IWorkspace Create(string label, WorkspaceRole createdByRole);
 
         /// <summary>按 ID 查询工作空间。</summary>
         IWorkspace Get(string id);

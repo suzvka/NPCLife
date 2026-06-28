@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 
 namespace NPCLife.Framework.Mcp
@@ -34,6 +36,24 @@ namespace NPCLife.Framework.Mcp
                 Definition = McpToolGenerator.GenerateDefinition(method),
                 Invoker = jsonArgs => McpToolInvoker.Invoke(method, target, jsonArgs)
             };
+        }
+
+        /// <summary>
+        /// 自动扫描目标对象上所有带 [McpTool] 特性的公开实例方法，
+        /// 包装为 McpTool 列表。IMcpHookProvider 实现类可用此方法替代手动维护 GetTools()。
+        /// 仅扫描声明类型上的方法（BindingFlags.DeclaredOnly），避免包含继承的 object 方法。
+        /// </summary>
+        /// <param name="target">工具方法所属的实例对象。</param>
+        /// <returns>扫描到的 McpTool 列表。</returns>
+        public static IReadOnlyList<McpTool> ScanAllFrom(object target)
+        {
+            if (target == null) return Array.Empty<McpTool>();
+
+            var type = target.GetType();
+            return type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                .Where(m => m.GetCustomAttribute<McpToolAttribute>() != null)
+                .Select(m => FromMethod(m, target))
+                .ToArray();
         }
     }
 }

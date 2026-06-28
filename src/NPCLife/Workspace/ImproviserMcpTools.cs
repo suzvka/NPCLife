@@ -14,7 +14,7 @@ namespace NPCLife.Workspace
     ///
     /// 与 WritingMcpProvider 的关键区别：
     /// - finish_round 无 outcome/directorNote —— Freelancer 不汇报剧情线推进状态
-    /// - push_line / finish_round 使用 WorkspaceRole.Freelancer 身份
+    /// - push_line / finish_round 使用 WorkspaceRole.Improviser 身份
     /// - route_events 可将不适合的事件推回导演工作空间
     /// - 无 get_workspace：工作空间元数据通过 AgentLoop 自动注入 prompt，无需工具调用
     /// </summary>
@@ -29,7 +29,7 @@ namespace NPCLife.Workspace
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public string HookId => "workspace_freelancer";
+        public string HookId => "workspace_improviser";
         public string HookName => "工作空间(临时任务代理)";
         public string HookDescription => "处理突发、独立事件的叙事输出。逐句台词推送与编剧同构。无叙事历史和上下文查询工具（由 prompt 自动注入）。Freelancer 专用。";
 
@@ -75,7 +75,7 @@ namespace NPCLife.Workspace
                 if (ws == null) return "{}";
 
                 bool ok = ws.PushLine(speakerId, text, (float)delay, type,
-                                      WorkspaceRole.Freelancer);
+                                      WorkspaceRole.Improviser);
                 return ok ? "{\"ok\":true}" : "{}";
             }
             catch (Exception e)
@@ -114,7 +114,7 @@ namespace NPCLife.Workspace
 
                 var eventIdList = ParseStringList(triggerEventIds);
                 bool ok = ws.FinishRound(recap, null, null, eventIdList,
-                                         WorkspaceRole.Freelancer);
+                                         WorkspaceRole.Improviser);
                 if (!ok) return "{}";
 
                 return SerializeResult(manager.Get(workspaceId));
@@ -225,8 +225,6 @@ namespace NPCLife.Workspace
             w.Prop("status", ws.Status.ToString());
             if (ws.FocusCharacterIds != null && ws.FocusCharacterIds.Count > 0)
                 w.Array("focusCharacterIds", ws.FocusCharacterIds);
-            if (ws.Tags != null && ws.Tags.Count > 0)
-                w.Array("tags", ws.Tags);
             w.Prop("roundCount", ws.Rounds?.Count ?? 0);
             w.Prop("pendingEventCount", ws.EventPool?.PendingCount ?? 0);
             w.Prop("lastActivityAt", ws.LastActivityAt ?? "");

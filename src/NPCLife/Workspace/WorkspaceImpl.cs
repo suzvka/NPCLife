@@ -56,7 +56,6 @@ namespace NPCLife.Workspace
         public string ParentId => _state.ParentId;
         public IReadOnlyList<string> MergedFromIds => _state.MergedFromIds;
         public IReadOnlyList<string> FocusCharacterIds => _state.FocusCharacterIds;
-        public IReadOnlyList<string> Tags => _state.Tags;
         public IReadOnlyList<WorkspaceRound> Rounds => _state.Rounds;
         public string CurrentRecap => _state.CurrentRecap;
         public string CreatedAt => _state.CreatedAt;
@@ -87,9 +86,9 @@ namespace NPCLife.Workspace
         {
             if (string.IsNullOrEmpty(text) && type != "pause") return false;
 
-            if (callerRole != WorkspaceRole.Screenwriter && callerRole != WorkspaceRole.Freelancer)
+            if (callerRole != WorkspaceRole.Screenwriter && callerRole != WorkspaceRole.Improviser)
             {
-                _logger?.Warning($"[NPCLife.Workspace] PushLine rejected: caller is {callerRole}, only Screenwriter/Freelancer can push lines.");
+                _logger?.Warning($"[NPCLife.Workspace] PushLine rejected: caller is {callerRole}, only Screenwriter/Improviser can push lines.");
                 return false;
             }
 
@@ -127,7 +126,7 @@ namespace NPCLife.Workspace
         public bool FinishRound(string recap, string outcome, string directorNote,
             IReadOnlyList<string> triggerEventIds, WorkspaceRole callerRole, string callerId = null)
         {
-            if (callerRole != WorkspaceRole.Screenwriter && callerRole != WorkspaceRole.Freelancer)
+            if (callerRole != WorkspaceRole.Screenwriter && callerRole != WorkspaceRole.Improviser)
             {
                 _logger?.Warning($"[NPCLife.Workspace] FinishRound rejected: caller is {callerRole}.");
                 return false;
@@ -181,6 +180,29 @@ namespace NPCLife.Workspace
             ));
 
             return true;
+        }
+
+        // ================================================================
+        // 内存管理
+        // ================================================================
+
+        /// <summary>
+        /// 释放指定轮次的 ScriptLines 内存。游戏侧消费完台词后调用。
+        /// </summary>
+        public void DiscardScriptLines(int roundSeq)
+        {
+            if (_state.Rounds == null) return;
+
+            for (int i = 0; i < _state.Rounds.Count; i++)
+            {
+                if (_state.Rounds[i].Seq == roundSeq)
+                {
+                    var round = _state.Rounds[i];
+                    round.ScriptLines = null;
+                    _state.Rounds[i] = round;
+                    break;
+                }
+            }
         }
 
         // ================================================================

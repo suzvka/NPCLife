@@ -88,7 +88,7 @@ namespace NPCLife.Workspace
         // CRUD
         // ================================================================
 
-        public IWorkspace Create(string label, List<string> tags, WorkspaceRole createdByRole)
+        public IWorkspace Create(string label, WorkspaceRole createdByRole)
         {
             string now = Now();
 
@@ -101,7 +101,6 @@ namespace NPCLife.Workspace
                 ParentId = null,
                 MergedFromIds = new List<string>(),
                 FocusCharacterIds = new List<string>(),
-                Tags = tags ?? new List<string>(),
                 Rounds = new List<WorkspaceRound>(),
                 CurrentRecap = "",
                 CreatedAt = now,
@@ -234,7 +233,6 @@ namespace NPCLife.Workspace
                 ParentId = parentId,
                 MergedFromIds = new List<string>(),
                 FocusCharacterIds = new List<string>(),
-                Tags = new List<string>(parent.Tags ?? new List<string>()),
                 Rounds = copiedRounds,
                 CurrentRecap = branchRecap ?? "",
                 CreatedAt = now,
@@ -326,17 +324,6 @@ namespace NPCLife.Workspace
             if (target.MergedFromIds == null)
                 target.MergedFromIds = new List<string>();
             target.MergedFromIds.Add(sourceId);
-
-            if (source.Tags != null)
-            {
-                if (target.Tags == null)
-                    target.Tags = new List<string>();
-                foreach (var tag in source.Tags)
-                {
-                    if (!target.Tags.Contains(tag))
-                        target.Tags.Add(tag);
-                }
-            }
 
             target.Rounds = mergedRounds;
             target.CurrentRecap = mergeRecap ?? "";
@@ -465,8 +452,6 @@ namespace NPCLife.Workspace
                 w.Array("mergedFromIds", ws.MergedFromIds);
             if (ws.FocusCharacterIds != null && ws.FocusCharacterIds.Count > 0)
                 w.Array("focusCharacterIds", ws.FocusCharacterIds);
-            if (ws.Tags != null && ws.Tags.Count > 0)
-                w.Array("tags", ws.Tags);
             if (!string.IsNullOrEmpty(ws.CurrentRecap))
                 w.Prop("currentRecap", ws.CurrentRecap);
             if (ws.ActiveSkillIds != null && ws.ActiveSkillIds.Count > 0)
@@ -526,7 +511,6 @@ namespace NPCLife.Workspace
                 ParentId = data.TryGetValue("parentId", out v) ? (string.IsNullOrEmpty(v) ? null : v) : null,
                 MergedFromIds = DeserializeStringList(data.TryGetValue("mergedFromIds", out v) ? v : null),
                 FocusCharacterIds = DeserializeStringList(data.TryGetValue("focusCharacterIds", out v) ? v : null),
-                Tags = DeserializeStringList(data.TryGetValue("tags", out v) ? v : null),
                 CurrentRecap = data.TryGetValue("currentRecap", out v) ? v : "",
                 Rounds = DeserializeRounds(data.TryGetValue("rounds", out v) ? v : null),
                 CreatedAt = data.TryGetValue("createdAt", out v) ? v : "",

@@ -3,11 +3,11 @@ schema_version: 1
 locale: zh-CN
 branch: master
 nodes_managed: true
-exported_at: "2026-06-25T19:40:17Z"
+exported_at: "2026-06-28T18:08:49Z"
 modules:
     "":
-        dir_name: NPC 叙事生成与多智能体协作框架
-        title: NPC 叙事生成与多智能体协作框架
+        dir_name: LLM 驱动的多智能体叙事引擎
+        title: LLM 驱动的多智能体叙事引擎
         scope:
             - README.md
             - .gitignore

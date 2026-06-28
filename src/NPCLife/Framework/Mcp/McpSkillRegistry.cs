@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using NPCLife.Workspace;
 
 namespace NPCLife.Framework.Mcp
 {
@@ -60,7 +61,7 @@ namespace NPCLife.Framework.Mcp
         // ================================================================
 
         /// <summary>
-        /// 注册 7 个业务技能的元数据。调用一次即可。
+        /// 注册全部业务技能的元数据（从 SkillCatalog 派生）。调用一次即可。
         /// </summary>
         public static void InitializeDefaults()
         {
@@ -69,24 +70,10 @@ namespace NPCLife.Framework.Mcp
                 _skillMetas.Clear();
                 _skillTools.Clear();
 
-                RegisterSkill("colony_overview", "殖民地全局",
-                    "殖民地概览、近期事件、活跃目标、资源库存");
-                RegisterSkill("character_query", "角色查询",
-                    "获取角色完整人物卡、按条件筛选殖民者、列出全部角色");
-                RegisterSkill("relationship_query", "关系网络",
-                    "查询角色社交关系、交互历史流水");
-                RegisterSkill("event_query", "事件回溯",
-                    "多维事件历史查询（标签、时间、Actor、严重度）");
-                RegisterSkill("environment_query", "环境感知",
-                    "查询角色当前所处的环境信息（室内外、温光、天气、房间）");
-                RegisterSkill("knowledge_management", "知识管理",
-                    "词条查询、学习、列表、删除、统计");
-                RegisterSkill("workspace_freelancer", "工作空间(临时任务代理)",
-                    "处理突发、独立事件的叙事输出。逐句台词推送与编剧同构。Freelancer 专用。");
-                RegisterSkill("workspace_direction", "工作空间(导演)",
-                    "剧情线工作空间的创建、分支、合并、生命周期管理。导演专用。");
-                RegisterSkill("workspace_writing", "工作空间(编剧)",
-                    "推送叙事回合、上报推进状态信号、事件路由。上下文由 prompt 自动注入。编剧专用。");
+                foreach (var skill in SkillCatalog.AllSkills)
+                {
+                    RegisterSkill(skill.Id, skill.Name, skill.Description);
+                }
             }
         }
 

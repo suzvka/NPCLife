@@ -114,9 +114,9 @@ L --> A
   - 接口：IMcpHookProvider
 - 内置与角色工具提供者
   - KnowledgeMcpProvider：知识库工具（查询、学习、列举、删除、统计）
-  - SystemMcpProvider：系统元工具（技能列表、激活/反激活、当前时间、中止）
-  - WritingMcpTools：编剧工作空间工具（推送台词、结束轮次、事件路由；工作空间上下文由 prompt 自动注入）
-  - FreelancerMcpTools：临时任务代理工具（推送台词、结束轮次、事件路由；工作空间上下文由 prompt 自动注入）
+  - SystemMcpProvider：系统元工具（技能列表、激活/反激活、当前时间）
+  - WritingMcpTools：编剧工作空间工具（查看、推送台词、结束轮次、事件路由）
+  - FreelancerMcpTools：临时任务代理工具（轻量视图、推送台词、结束轮次、事件路由）
   - DirectionMcpTools：导演工作空间工具（创建、分支、合并、生命周期管理、事件路由）
 
 **章节来源**
@@ -262,8 +262,8 @@ Reflect --> |异常| WrapErr["包装异常为 JSON 错误"] --> Done
   - activate_skill/deactivate_skill：激活/反激活技能
   - get_current_time：获取当前时间
 - 工作空间工具
-  - 编剧：push_line、finish_round、route_events（读操作由 prompt 自动注入）
-  - 临时任务代理：push_line、finish_round、route_events（读操作由 prompt 自动注入）
+  - 编剧：get_workspace、push_line、finish_round、route_events
+  - 临时任务代理：轻量视图与相同功能的变体
   - 导演：create/list/get/suspend/resume/close/branch/merge/route_events
 
 **章节来源**
@@ -378,9 +378,9 @@ NPCLife 的 MCP 工具协议通过“技能+工具”的模块化设计，结合
   - 可空类型与 Task<T> 在生成定义时自动解包
 - 常用工具清单
   - 知识库：lookup_term、learn_term、list_known_terms、forget_term、get_term_stats
-  - 系统：list_skills、activate_skill、deactivate_skill、get_current_time、abort
-  - 工作空间（编剧）：push_line、finish_round、route_events（读操作由 prompt 自动注入）
-  - 工作空间（临时任务代理）：push_line、finish_round、route_events（读操作由 prompt 自动注入）
+  - 系统：list_skills、activate_skill、deactivate_skill、get_current_time
+  - 工作空间（编剧）：get_workspace、push_line、finish_round、route_events
+  - 工作空间（临时任务代理）：fre_get_workspace、push_line、finish_round、route_events
   - 工作空间（导演）：create_workspace、list_workspaces、get_workspace、suspend/resume/close、branch/merge、route_events
 
 **章节来源**
