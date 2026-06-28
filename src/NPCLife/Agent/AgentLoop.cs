@@ -4,6 +4,7 @@ using NPCLife.Driver;
 using NPCLife.Framework;
 using NPCLife.Framework.Llm;
 using NPCLife.Framework.Mcp;
+using NPCLife.Workspace;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -42,6 +43,7 @@ namespace NPCLife.Agent
     /// </summary>
     public class AgentLoop : IDisposable
     {
+        private readonly IWorkspace _workspace;
         private readonly IEventLog _pool;
         private readonly ILlmService _llm;
         private readonly ICredentialStore _credentialStore;
@@ -52,8 +54,6 @@ namespace NPCLife.Agent
         private readonly ICardSerializer _serializer;
         private readonly Action _unsubscribe; // 取消事件订阅的委托
         private readonly Func<string> _contextProvider;
-        private readonly Func<string> _workspaceContext;
-        private readonly IKnowledgeService _knowledgeService;
         private readonly float _temperature;
         private readonly List<(string Cred, string Model)> _modelRefs;
         private readonly string _currentModelJson;
@@ -71,55 +71,51 @@ namespace NPCLife.Agent
         private IReadOnlyList<IGameEvent> _drained;
 
         /// <summary>
-        /// 创建 AgentLoop 并自动订阅池子的 OnThresholdReached 事件。
+        /// 创建 AgentLoop 并自动订阅工作空间事件池的 OnThresholdReached 事件。
+        /// pool、skillIds、modelRefs 均从 IWorkspace 推导，无需手动传入。
         /// </summary>
-        /// <param name="pool">事件池。Agent 从该池 drain 事件。</param>
-        /// <param name="llm">LLM 异步对话服务（无状态）。</param>
-        /// <param name="credentialStore">凭证存储。提供当前可用的 API 凭证列表。</param>
-        /// <param name="systemPrompt">系统提示词。</param>
-        /// <param name="skillIds">激活的 Skill ID 列表（MCP 工具集）。</param>
-        /// <param name="maxRounds">最大工具调用轮数（防死循环）。</param>
-        /// <param name="logger">日志接口。</param>
-        /// <param name="serializer">Card 序列化器（可选，默认使用 CardSerializer.Default）。</param>
+        /// <param name="workspace">绑定的工作空间。Agent 从 ws.EventPool drain 事件，从 ws.SkillSlot 获取工具集，从 ws.ModelRefs 解析凭证。</param>
+        /// <param name="deps">基础设施依赖（LLM 服务、凭证、日志等）与行为配置（最大轮数、温度）。由宿主统一注入。</param>
+        /// <param name="systemPrompt">系统提示词。由宿主根据角色 + 游戏附加指令构建。</param>
         /// <param name="contextProvider">动态上下文提供者（可选）。每次激活时调用，返回值追加到用户消息末尾。</param>
-        /// <param name="workspaceContext">工作空间上下文（可选）。每次激活时调用，返回值注入用户消息头部。用于替代 get_workspace 工具调用，消除不必要的 API 往返。</param>
-        /// <param name="knowledgeService">知识服务（可选）。Agent 激活时收集事件词条名去重后批量查询，命中结果注入提示词。第三方可实现 IKnowledgeService 自定义架构。</param>
-        /// <param name="temperature">LLM 采样温度（0~2），默认 0.7。</param>
-        /// <param name="modelAlias">关联的模型代号（如 "primary"），用于从 Registry 解析凭证。默认 "primary"。</param>
         public AgentLoop(
-            IEventLog pool,
-            ILlmService llm,
-            ICredentialStore credentialStore,
+            IWorkspace workspace,
+            AgentLoopDependencies deps,
             string systemPrompt,
-            string[] skillIds,
-            int maxRounds,
-            ILogger logger,
-            ICardSerializer serializer = null,
-            Func<string> contextProvider = null,
-            IKnowledgeService knowledgeService = null,
-            Func<string> workspaceContext = null,
-            float temperature = 0.7f,
-            string modelRefsJson = null,
-            string currentModel = null)
+            Func<string> contextProvider = null)
         {
-            _pool = pool ?? throw new ArgumentNullException(nameof(pool));
-            _llm = llm ?? throw new ArgumentNullException(nameof(llm));
-            _credentialStore = credentialStore ?? throw new ArgumentNullException(nameof(credentialStore));
+            _workspace = workspace ?? throw new ArgumentNullException(nameof(workspace));
+            _pool = workspace.EventPool ?? throw new ArgumentException("workspace.EventPool is null", nameof(workspace));
+            _llm = deps.Llm ?? throw new ArgumentNullException(nameof(deps.Llm));
+            _credentialStore = deps.CredentialStore ?? throw new ArgumentNullException(nameof(deps.CredentialStore));
+            _logger = deps.Logger ?? throw new ArgumentNullException(nameof(deps.Logger));
             _systemPrompt = systemPrompt ?? "";
-            _skillIds = skillIds ?? Array.Empty<string>();
-            _maxRounds = maxRounds;
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _serializer = serializer ?? CardSerializer.Default;
+            _skillIds = DeriveSkillIds(workspace);
+            _maxRounds = deps.MaxRounds > 0 ? deps.MaxRounds : 10;
+            _serializer = deps.Serializer ?? CardSerializer.Default;
             _contextProvider = contextProvider;
-            _workspaceContext = workspaceContext;
-            _knowledgeService = knowledgeService;
-            _temperature = temperature;
-            _modelRefs = ParseModelRefs(modelRefsJson);
-            _currentModelJson = currentModel;
+            _temperature = deps.Temperature > 0 ? deps.Temperature : 0.7f;
+            _modelRefs = ParseModelRefs(workspace.ModelRefs);
+            _currentModelJson = workspace.CurrentModel;
 
             // 订阅池子事件——唯一激活路径
             _pool.OnThresholdReached += OnPoolChanged;
             _unsubscribe = () => _pool.OnThresholdReached -= OnPoolChanged;
+        }
+
+        /// <summary>
+        /// 从工作空间的 SkillSlot 提取活跃技能 ID 列表。
+        /// 工作空间创建时已按角色注册了默认技能集（SkillCatalog），此处直接读取。
+        /// </summary>
+        private static string[] DeriveSkillIds(IWorkspace ws)
+        {
+            var activeIds = ws.SkillSlot?.ActiveSkillIds;
+            if (activeIds != null && activeIds.Count > 0)
+                return activeIds.ToArray();
+
+            // 回退：使用角色默认技能配置
+            var defaults = SkillCatalog.GetDefaultSkillIds(ws.CreatedByRole);
+            return defaults?.ToArray() ?? Array.Empty<string>();
         }
 
         // ================================================================
@@ -482,89 +478,9 @@ namespace NPCLife.Agent
         {
             var sb = new StringBuilder();
 
-            // 工作空间上下文：替代 get_workspace 工具调用，消除 API 往返
-            if (_workspaceContext != null)
-            {
-                var ctx = _workspaceContext();
-                if (!string.IsNullOrEmpty(ctx))
-                {
-                    sb.AppendLine("## 当前工作空间");
-                    sb.AppendLine();
-                    sb.AppendLine(ctx);
-                    sb.AppendLine();
-                }
-            }
-
             sb.AppendLine("## 待处理事件");
             sb.AppendLine();
             sb.AppendLine(_serializer.SerializeEventList(events));
-
-            // 收集所有事件的查询词条，去重后批量查询知识服务
-            bool hasKnowledgeSkill = _skillIds != null &&
-                Array.IndexOf(_skillIds, "knowledge_management") >= 0;
-
-            if (_knowledgeService != null)
-            {
-                var allKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var evt in events)
-                {
-                    if (evt.Keywords != null)
-                    {
-                        foreach (var kw in evt.Keywords)
-                        {
-                            if (!string.IsNullOrEmpty(kw))
-                                allKeywords.Add(kw);
-                        }
-                    }
-                }
-
-                if (allKeywords.Count > 0)
-                {
-                    var hits = new List<KnowledgeEntry>();
-                    var missed = new List<string>();
-                    foreach (var kw in allKeywords)
-                    {
-                        var results = _knowledgeService.Lookup(kw);
-                        if (results != null && results.Count > 0)
-                            hits.AddRange(results);
-                        else
-                            missed.Add(kw);
-                    }
-
-                    // 先报告缺失词条，引导 LLM 在叙事前补全
-                    if (missed.Count > 0 && hasKnowledgeSkill)
-                    {
-                        sb.AppendLine();
-                        sb.AppendLine("## 缺失知识条目");
-                        sb.AppendLine();
-                        sb.AppendLine("以下词条在当前知识库中没有记录。在开始叙事工作之前，请先使用 learn_term 逐一创建。");
-                        sb.AppendLine("你可以先用 lookup_term 查询相似词条、用 character_query / event_query 了解关联背景来辅助推断释义。");
-                        sb.AppendLine();
-                        foreach (var kw in missed)
-                        {
-                            sb.Append("- **");
-                            sb.Append(kw);
-                            sb.AppendLine("**");
-                        }
-                    }
-
-                    if (hits.Count > 0)
-                    {
-                        sb.AppendLine();
-                        sb.AppendLine("## 相关知识");
-                        sb.AppendLine();
-                        foreach (var entry in hits)
-                        {
-                            sb.Append("- **");
-                            sb.Append(entry.Term ?? "");
-                            sb.Append("** [");
-                            sb.Append(entry.Source ?? "unknown");
-                            sb.Append("]: ");
-                            sb.AppendLine(entry.Definition ?? "");
-                        }
-                    }
-                }
-            }
 
             sb.AppendLine();
             sb.AppendLine("请审查事件列表，挑选值得发展的事件，使用 create_workspace / branch_workspace 等工具创建剧情线工作空间。");
