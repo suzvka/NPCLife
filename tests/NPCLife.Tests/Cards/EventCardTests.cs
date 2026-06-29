@@ -108,6 +108,7 @@ namespace NPCLife.Tests.Cards
             var ctx = new ColonyContext();
 
             Assert.Equal(0, ctx.CurrentTick);
+            Assert.Null(ctx.Timestamp);
             Assert.Equal(0, ctx.Year);
             Assert.Equal(0, ctx.PopulationAlive);
             Assert.Null(ctx.Season);

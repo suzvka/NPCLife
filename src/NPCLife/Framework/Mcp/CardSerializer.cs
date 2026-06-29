@@ -112,11 +112,8 @@ namespace NPCLife.Framework.Mcp
             var w = new JsonWriter(1024);
 
             // 时间
-            w.Prop("currentTick", ctx.CurrentTick);
-            w.Prop("season", ctx.Season);
+            w.Prop("timestamp", ctx.Timestamp ?? "");
             w.Prop("timeOfDay", ctx.TimeOfDay);
-            w.Prop("year", ctx.Year);
-            w.Prop("hour", ctx.Hour);
 
             // 人口
             w.Prop("populationAlive", ctx.PopulationAlive);
@@ -159,7 +156,6 @@ namespace NPCLife.Framework.Mcp
             // 难度
             w.Prop("difficulty", ctx.Difficulty);
             w.Prop("techLevel", ctx.TechLevel);
-            w.Prop("colonyStartTick", ctx.ColonyStartTick);
 
             SerializeExtensions(w, ctx);
             return w.Close();

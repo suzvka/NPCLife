@@ -75,7 +75,7 @@ namespace NPCLife.Tests.Framework
         {
             var ctx = new ColonyContext
             {
-                CurrentTick = 10000,
+                Timestamp = "第2年·夏季·第5天·14h",
                 Season = "Summer",
                 TimeOfDay = "Day",
                 Year = 2,
@@ -99,7 +99,7 @@ namespace NPCLife.Tests.Framework
 
             var json = CardSerializer.Default.SerializeColonyContext(ctx);
 
-            Assert.Contains("\"season\":\"Summer\"", json);
+            Assert.Contains("\"timestamp\":\"第2年·夏季·第5天·14h\"", json);
             Assert.Contains("\"populationAlive\":5", json);
             Assert.Contains("\"foodStatus\":\"Abundant\"", json);
             Assert.Contains("\"moraleTier\":\"Good\"", json);

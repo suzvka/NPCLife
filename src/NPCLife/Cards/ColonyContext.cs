@@ -12,7 +12,16 @@ namespace NPCLife.Cards
         // 时间
         // ================================================================
 
-        /// <summary>当前游戏时间戳。</summary>
+        /// <summary>
+        /// 当前游戏时间的人类可读字符串。由游戏侧全权负责格式化，
+        /// 框架原样透传给 LLM。不同游戏可自由定义格式：
+        ///  RimWorld: "第2年·夏季·第5天·14h"
+        ///  科幻题材: "Mission Day 42, 14:00 UTC"
+        ///  修仙题材: "星历 4523.7"
+        /// </summary>
+        public string Timestamp;
+
+        /// <summary>当前游戏 tick（仅供游戏侧自动化系统内部使用，不序列化给 LLM）。</summary>
         public int CurrentTick;
 
         /// <summary>"Spring" / "Summer" / "Fall" / "Winter"</summary>
@@ -66,7 +75,7 @@ namespace NPCLife.Cards
         // 生命周期
         // ================================================================
 
-        /// <summary>会话开始时间戳。</summary>
+        /// <summary>会话开始 tick（仅供游戏侧自动化系统内部使用，不序列化给 LLM）。</summary>
         public int ColonyStartTick;
 
         // ================================================================
