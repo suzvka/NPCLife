@@ -21,6 +21,14 @@ namespace NPCLife.Framework.Llm
         public float? Temperature { get; set; }
 
         /// <summary>
+        /// 是否允许模型在一次响应中发起多个并行工具调用。
+        /// 启用后，互不依赖的查询类工具（如 get_colony_overview + get_recent_events）
+        /// 可在同一轮中一并返回，大幅减少上下文重放次数。
+        /// 对应 OpenAI API 的 parallel_tool_calls 参数。
+        /// </summary>
+        public bool ParallelToolCalls { get; set; } = true;
+
+        /// <summary>
         /// 验证请求是否合法。
         /// </summary>
         public bool IsValid()

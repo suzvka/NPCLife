@@ -490,7 +490,8 @@ namespace NPCLife.Agent
                 Model = _currentModelName ?? "",
                 Messages = new List<LlmMessage>(_messages),
                 ToolsJson = McpSkillRegistry.GetActiveToolsJson(_skillIds),
-                Temperature = _temperature
+                Temperature = _temperature,
+                ParallelToolCalls = true
             };
         }
 

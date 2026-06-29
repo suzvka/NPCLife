@@ -61,7 +61,10 @@ namespace NPCLife.Workspace
                 WorkspaceRole.Director),
 
             new("workspace_direction", "工作空间(导演)",
-                "剧情线工作空间的创建、分支、合并、生命周期管理。导演专用。",
+                "剧情线工作空间的创建、分支、合并、生命周期管理。全量操作。"),
+
+            new("workspace_direction_slim", "工作空间(导演-精简)",
+                "剧情线工作空间的创建、事件创作、事件路由和分支。仅 Action 操作。导演专用。",
                 WorkspaceRole.Director),
 
             new("workspace_writing", "工作空间(编剧)",

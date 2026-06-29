@@ -44,7 +44,7 @@ namespace NPCLife.Driver
         public int RecentHistoryCapacity = 200;
 
         /// <summary>Agent 多轮工具调用最大轮数（防死循环）。</summary>
-        public int MaxAgentRounds = 6;
+        public int MaxAgentRounds = 100;
 
         // ---- 查询方法 ----
 

@@ -41,6 +41,24 @@ namespace NPCLife.Workspace
 
         private string Now() => _timeProvider() ?? "";
 
+        /// <summary>
+        /// 生成简短 workspace ID（9 字符：角色前缀 + 8 位 hex）。
+        /// 相比 36 字符 UUID，短 ID 显著降低 LLM 在路由事件时的字符级幻觉概率。
+        /// 格式：d{8hex}（Director）/ s{8hex}（Screenwriter）/ i{8hex}（Improviser）。
+        /// </summary>
+        private static string GenerateWorkspaceId(WorkspaceRole role)
+        {
+            char prefix = role switch
+            {
+                WorkspaceRole.Director => 'd',
+                WorkspaceRole.Screenwriter => 's',
+                WorkspaceRole.Improviser => 'i',
+                _ => 'w'
+            };
+            string hex = Guid.NewGuid().ToString("N").Substring(0, 8);
+            return $"{prefix}{hex}";
+        }
+
         private void PublishUpdated(string workspaceId)
         {
             EventBus.Publish(FrameworkEvents.WorkspaceUpdated,
@@ -94,7 +112,7 @@ namespace NPCLife.Workspace
 
             var ws = new WorkspaceState
             {
-                Id = Guid.NewGuid().ToString("D"),
+                Id = GenerateWorkspaceId(createdByRole),
                 Label = label ?? "Unnamed",
                 Status = WorkspaceStatus.Active,
                 CreatedByRole = createdByRole,
@@ -226,7 +244,7 @@ namespace NPCLife.Workspace
 
             var child = new WorkspaceState
             {
-                Id = Guid.NewGuid().ToString("D"),
+                Id = GenerateWorkspaceId(parent.CreatedByRole),
                 Label = newLabel ?? $"{parent.Label} (branch)",
                 Status = WorkspaceStatus.Active,
                 CreatedByRole = parent.CreatedByRole,
