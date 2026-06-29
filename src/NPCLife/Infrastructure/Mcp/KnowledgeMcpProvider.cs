@@ -25,7 +25,7 @@ namespace NPCLife.Infrastructure.Mcp
 
         public string HookId => "knowledge_management";
         public string HookName => "知识管理";
-        public string HookDescription => "词条查询、学习、列举、删除、统计";
+        public string HookDescription => "词条查询、学习、列举、删除、统计。注意：知识库不是记忆系统，应只存客观、稳定的事实信息。";
 
         public IReadOnlyList<McpTool> GetTools()
         {
