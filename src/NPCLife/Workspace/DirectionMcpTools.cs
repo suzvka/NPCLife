@@ -86,7 +86,7 @@ namespace NPCLife.Workspace
         [McpTool(Name = "create_event",
                  Description = "在指定工作空间的事件池中创建新事件卡片。用于定时器触发无外部事件时主动注入叙事驱动力。\n" +
                                "DefName 建议以 DirectorBeat_ 为前缀以区分导演事件和游戏事件，如 DirectorBeat_StormApproaching。\n" +
-                               "创建的事件直接追加到目标工作空间，达到阈值后激活编剧。")]
+                               "创建的事件直接追加到目标工作空间，达到阈值后激活编剧。可附带知识索引标签。")]
         public string CreateEvent(
             [McpParam(Description = "目标工作空间 ID。事件将注入此空间的事件池。")] string targetWorkspaceId,
             [McpParam(Description = "事件定义名，建议以 DirectorBeat_ 为前缀。")] string defName,
@@ -95,7 +95,9 @@ namespace NPCLife.Workspace
             [McpParam(Description = "关联角色 ThingID，逗号分隔。如 pawn_123,pawn_456",
                       Required = McpRequired.False)] string actorIds = null,
             [McpParam(Description = "空间位置提示，如 '殖民地广场'",
-                      Required = McpRequired.False)] string mapHint = null)
+                      Required = McpRequired.False)] string mapHint = null,
+            [McpParam(Description = "知识库索引标签，逗号分隔。如 '心灵感应,殖民地历史'。编剧处理此事件时可在 payload 中看到这些标签。",
+                      Required = McpRequired.False)] string knowledgeTags = null)
         {
             try
             {
@@ -125,11 +127,7 @@ namespace NPCLife.Workspace
                     Importance = (float)importance,
                     Actors = actorList,
                     MapHint = mapHint ?? "",
-                    Payload = new Dictionary<string, string>
-                    {
-                        { "description", description },
-                        { "source", "director" }
-                    }
+                    Payload = BuildCreateEventPayload(description, knowledgeTags)
                 };
 
                 ws.EventPool.Append(eventCard);
@@ -360,7 +358,7 @@ namespace NPCLife.Workspace
         /// 将事件从源工作空间推送到目标工作空间。可附加留言。
         /// </summary>
         [McpTool(Name = "route_events",
-                 Description = "将事件从源工作空间的事件池推送到目标工作空间。可附加留言和聚焦角色。源和目标都必须是已存在的工作空间 ID。")]
+                 Description = "将事件从源工作空间的事件池推送到目标工作空间。可附加留言、聚焦角色和知识索引标签。源和目标都必须是已存在的工作空间 ID。")]
         public string RouteEvents(
             [McpParam(Description = "源工作空间 ID（事件从这里取）")] string sourceWorkspaceId,
             [McpParam(Description = "目标工作空间 ID（事件推送到这里）")] string targetWorkspaceId,
@@ -368,7 +366,9 @@ namespace NPCLife.Workspace
             [McpParam(Description = "可选留言：附带给目标工作空间的备注",
                       Required = McpRequired.False)] string message = null,
             [McpParam(Description = "可选聚焦角色 ThingID，逗号分隔。导演指定本轮叙事应重点关注的角色，编剧激活时可见。每次推送覆盖更新。",
-                      Required = McpRequired.False)] string focusCharacterIds = null)
+                      Required = McpRequired.False)] string focusCharacterIds = null,
+            [McpParam(Description = "知识库索引标签，逗号分隔。如 '心灵感应,殖民地历史'。目标工作空间的编剧激活时可在事件 payload 中看到这些标签，用于关联知识库词条。",
+                      Required = McpRequired.False)] string knowledgeTags = null)
         {
             try
             {
@@ -390,8 +390,13 @@ namespace NPCLife.Workspace
                 foreach (var id in ids)
                 {
                     var evt = sourceWs.EventPool?.GetById(id);
-                    if (evt != null)
-                        events.Add(evt);
+                    if (evt == null) continue;
+
+                    // 导演可为此批次事件标注知识索引标签，编剧激活时自动可见
+                    if (!string.IsNullOrEmpty(knowledgeTags) && evt.Payload != null)
+                        evt.Payload["knowledge_tags"] = knowledgeTags;
+
+                    events.Add(evt);
                 }
         
                 int routed = 0;
@@ -502,6 +507,22 @@ namespace NPCLife.Workspace
                 .Select(s => s.Trim())
                 .Where(s => s.Length > 0)
                 .ToList();
+        }
+
+        /// <summary>
+        /// 构建 create_event 的 Payload 字典。始终包含 description 和 source，
+        /// 可选附加 knowledge_tags。
+        /// </summary>
+        private static Dictionary<string, string> BuildCreateEventPayload(string description, string knowledgeTags)
+        {
+            var payload = new Dictionary<string, string>
+            {
+                { "description", description },
+                { "source", "director" }
+            };
+            if (!string.IsNullOrEmpty(knowledgeTags))
+                payload["knowledge_tags"] = knowledgeTags;
+            return payload;
         }
 
         private string Truncate(string value, int maxLength)

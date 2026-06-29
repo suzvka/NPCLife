@@ -201,10 +201,20 @@ namespace NPCLife.Agent
 
                 // --- BuildingRequest ---
                 _state = AgentRunState.BuildingRequest;
+                string userMessage = BuildUserMessage(_drained);
+
+                // 管道拦截：允许拦截器（如知识上下文注入）在 prompt 构造后修改用户消息
+                var promptCtx = new PromptContext
+                {
+                    Events = _drained,
+                    UserMessage = userMessage
+                };
+                AgentPipeline.RunBeforePrompt(promptCtx);
+
                 _messages = new List<LlmMessage>
                 {
                     LlmMessage.System(_systemPrompt),
-                    LlmMessage.User(BuildUserMessage(_drained))
+                    LlmMessage.User(promptCtx.UserMessage)
                 };
 
                 // 解析凭证：优先使用模型引用列表，回退到全局激活凭证
