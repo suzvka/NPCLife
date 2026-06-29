@@ -24,7 +24,6 @@ namespace NPCLife.Tests.Framework
             {
                 EventID = "test_001",
                 DefName = "TestEvent",
-                Tick = 5000,
                 Importance = 3f,
                 MapHint = "Map:123",
                 Actors = new List<EventActorRef>
@@ -38,7 +37,6 @@ namespace NPCLife.Tests.Framework
 
             Assert.Contains("\"eventId\":\"test_001\"", json);
             Assert.Contains("\"defName\":\"TestEvent\"", json);
-            // tick is intentionally not serialized to JSON (internal only)
             Assert.Contains("\"importance\":3", json);
             Assert.Contains("\"pawn_1\"", json);
             Assert.Contains("\"Alice\"", json);
@@ -57,8 +55,8 @@ namespace NPCLife.Tests.Framework
         {
             var events = new List<IGameEvent>
             {
-                new TestGameEvent { EventID = "e1", DefName = "A", Tick = 1 },
-                new TestGameEvent { EventID = "e2", DefName = "B", Tick = 2 }
+                new TestGameEvent { EventID = "e1", DefName = "A" },
+                new TestGameEvent { EventID = "e2", DefName = "B" }
             };
             var json = CardSerializer.Default.SerializeEventList(events);
 
@@ -437,8 +435,6 @@ namespace NPCLife.Tests.Framework
         {
             public string EventID { get; set; }
             public string DefName { get; set; }
-            public IReadOnlyList<string> Keywords { get; set; } = new List<string>();
-            public int Tick { get; set; }
             public float Importance { get; set; } = 1f;
             public IReadOnlyList<EventActorRef> Actors { get; set; } = new List<EventActorRef>();
             public string MapHint { get; set; } = "";

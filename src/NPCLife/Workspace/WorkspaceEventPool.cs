@@ -19,7 +19,7 @@ namespace NPCLife.Workspace
     ///
     /// 阈值检测在每次 Append 后评估，达到时触发 OnThresholdReached。
     ///
-    /// 去重机制：基于内容指纹（DefName + Tick + sorted Payload）自动拦截重复事件。
+    /// 去重机制：基于内容指纹（DefName + sorted Payload）自动拦截重复事件。
     /// 同一指纹在 pending 缓冲区内只允许存在一次，DrainPending 后指纹集合清空。
     /// </summary>
     internal class WorkspaceEventPool : IEventLog
@@ -114,16 +114,10 @@ namespace NPCLife.Workspace
 
             IEnumerable<IGameEvent> result = _recent;
 
-            if (query.SinceTick.HasValue)
-                result = result.Where(e => e.Tick >= query.SinceTick.Value);
-            if (query.UntilTick.HasValue)
-                result = result.Where(e => e.Tick < query.UntilTick.Value);
             if (!string.IsNullOrEmpty(query.ActorId))
                 result = result.Where(e => e.Actors != null && e.Actors.Any(a => a.ID == query.ActorId));
             if (query.MinImportance.HasValue)
                 result = result.Where(e => e.Importance >= query.MinImportance.Value);
-
-            result = result.OrderBy(e => e.Tick);
 
             int offset = query.Offset ?? 0;
             if (offset > 0)
@@ -139,8 +133,6 @@ namespace NPCLife.Workspace
             if (query == null) return _recent.Count;
             var q = new EventQuery
             {
-                SinceTick = query.SinceTick,
-                UntilTick = query.UntilTick,
                 ActorId = query.ActorId,
                 MinImportance = query.MinImportance,
                 Limit = null,
@@ -202,12 +194,12 @@ namespace NPCLife.Workspace
 
         /// <summary>
         /// 计算事件的内容指纹，用于去重。
-        /// 指纹 = DefName + Tick + sorted Payload KV pairs。
+        /// 指纹 = DefName + sorted Payload KV pairs。
         /// </summary>
         private static string ComputeFingerprint(IGameEvent evt)
         {
             var sb = new StringBuilder();
-            sb.Append(evt.DefName ?? "").Append('|').Append(evt.Tick);
+            sb.Append(evt.DefName ?? "");
             if (evt.Payload != null && evt.Payload.Count > 0)
             {
                 foreach (var kv in evt.Payload.OrderBy(kv => kv.Key))

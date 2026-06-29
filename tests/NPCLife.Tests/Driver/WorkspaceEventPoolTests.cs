@@ -30,15 +30,13 @@ namespace NPCLife.Tests.Driver
             };
         }
 
-        private static IGameEvent MakeEvent(string id, float importance, int tick = 0,
+        private static IGameEvent MakeEvent(string id, float importance,
             IReadOnlyList<EventActorRef> actors = null)
         {
             return new TestGameEvent
             {
                 EventID = id,
                 DefName = "TestEvent",
-                Keywords = new List<string>(),
-                Tick = tick,
                 Importance = importance,
                 Actors = actors ?? new List<EventActorRef>(),
                 MapHint = "",
@@ -338,15 +336,15 @@ namespace NPCLife.Tests.Driver
         {
             var pool = CreatePool();
 
-            // 两个指纹完全相同的事件（同 DefName、同 Tick、同 Payload）
+            // 两个指纹完全相同的事件（同 DefName、同 Payload）
             var evt1 = new TestGameEvent
             {
-                EventID = "dup1", DefName = "Raid", Tick = 100, Importance = 3f,
+                EventID = "dup1", DefName = "Raid", Importance = 3f,
                 Actors = new List<EventActorRef>(), MapHint = "", Payload = new Dictionary<string, string> { { "faction", "pirates" } }
             };
             var evt2 = new TestGameEvent
             {
-                EventID = "dup2", DefName = "Raid", Tick = 100, Importance = 3f,
+                EventID = "dup2", DefName = "Raid", Importance = 3f,
                 Actors = new List<EventActorRef>(), MapHint = "", Payload = new Dictionary<string, string> { { "faction", "pirates" } }
             };
 
@@ -366,12 +364,12 @@ namespace NPCLife.Tests.Driver
             // 不同 DefName
             var evt1 = new TestGameEvent
             {
-                EventID = "e1", DefName = "Raid", Tick = 100, Importance = 3f,
+                EventID = "e1", DefName = "Raid", Importance = 3f,
                 Actors = new List<EventActorRef>(), MapHint = "", Payload = new Dictionary<string, string>()
             };
             var evt2 = new TestGameEvent
             {
-                EventID = "e2", DefName = "Trade", Tick = 100, Importance = 2f,
+                EventID = "e2", DefName = "Trade", Importance = 2f,
                 Actors = new List<EventActorRef>(), MapHint = "", Payload = new Dictionary<string, string>()
             };
 
@@ -389,7 +387,7 @@ namespace NPCLife.Tests.Driver
 
             var evt = new TestGameEvent
             {
-                EventID = "e1", DefName = "Raid", Tick = 100, Importance = 3f,
+                EventID = "e1", DefName = "Raid", Importance = 3f,
                 Actors = new List<EventActorRef>(), MapHint = "", Payload = new Dictionary<string, string>()
             };
 
@@ -412,8 +410,6 @@ namespace NPCLife.Tests.Driver
         {
             public string EventID { get; set; }
             public string DefName { get; set; }
-            public IReadOnlyList<string> Keywords { get; set; }
-            public int Tick { get; set; }
             public float Importance { get; set; }
             public IReadOnlyList<EventActorRef> Actors { get; set; }
             public string MapHint { get; set; }

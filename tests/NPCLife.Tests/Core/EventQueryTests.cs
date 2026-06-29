@@ -6,7 +6,7 @@ namespace NPCLife.Tests.Core
 {
     /// <summary>
     /// EventQuery 纯逻辑断言测试。
-    /// 验证查询对象的默认值、工厂方法和参数组合。
+    /// 验证查询对象的默认值和参数组合。
     /// </summary>
     public class EventQueryTests
     {
@@ -15,8 +15,6 @@ namespace NPCLife.Tests.Core
         {
             var q = EventQuery.All;
 
-            Assert.Null(q.SinceTick);
-            Assert.Null(q.UntilTick);
             Assert.Null(q.ActorId);
             Assert.Null(q.MinImportance);
             Assert.Null(q.Limit);
@@ -24,21 +22,10 @@ namespace NPCLife.Tests.Core
         }
 
         [Fact]
-        public void Since_SetsOnlySinceTick()
-        {
-            var q = EventQuery.Since(1000);
-
-            Assert.Equal(1000, q.SinceTick);
-            Assert.Null(q.UntilTick);
-        }
-
-        [Fact]
         public void DefaultConstructor_AllNull()
         {
             var q = new EventQuery();
 
-            Assert.Null(q.SinceTick);
-            Assert.Null(q.UntilTick);
             Assert.Null(q.ActorId);
             Assert.Null(q.MinImportance);
             Assert.Null(q.Limit);
@@ -50,16 +37,12 @@ namespace NPCLife.Tests.Core
         {
             var q = new EventQuery
             {
-                SinceTick = 5000,
-                UntilTick = 10000,
                 ActorId = "pawn_001",
                 MinImportance = 3f,
                 Limit = 20,
                 Offset = 5
             };
 
-            Assert.Equal(5000, q.SinceTick);
-            Assert.Equal(10000, q.UntilTick);
             Assert.Equal("pawn_001", q.ActorId);
             Assert.Equal(3f, q.MinImportance);
             Assert.Equal(20, q.Limit);

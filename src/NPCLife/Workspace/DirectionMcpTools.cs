@@ -33,6 +33,7 @@ namespace NPCLife.Workspace
             return new McpTool[]
             {
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(CreateWorkspace)), this),
+                McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(CreateEvent)), this),
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(ListWorkspaces)), this),
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(GetWorkspace)), this),
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(SuspendWorkspace)), this),
@@ -71,6 +72,79 @@ namespace NPCLife.Workspace
             {
                 _logger.Warning($"[NPCLife.DirectionMcp] create_workspace failed: {e.Message}");
                 return "{}";
+            }
+        }
+
+        // ================================================================
+        // 事件创作
+        // ================================================================
+
+        /// <summary>
+        /// 在目标工作空间的事件池中创建新事件卡片。导演可在无外部事件时主动注入叙事驱动力。
+        /// 创建的事件 DefName 建议以 DirectorBeat_ 为前缀。
+        /// </summary>
+        [McpTool(Name = "create_event",
+                 Description = "在指定工作空间的事件池中创建新事件卡片。用于定时器触发无外部事件时主动注入叙事驱动力。\n" +
+                               "DefName 建议以 DirectorBeat_ 为前缀以区分导演事件和游戏事件，如 DirectorBeat_StormApproaching。\n" +
+                               "创建的事件直接追加到目标工作空间，达到阈值后激活编剧。")]
+        public string CreateEvent(
+            [McpParam(Description = "目标工作空间 ID。事件将注入此空间的事件池。")] string targetWorkspaceId,
+            [McpParam(Description = "事件定义名，建议以 DirectorBeat_ 为前缀。")] string defName,
+            [McpParam(Description = "事件叙事描述。编剧在提示词中看到此文本作为事件主要内容。")] string description,
+            [McpParam(Description = "重要度，默认 3.0。越高越容易触发编剧激活。范围建议 1.0-5.0。")] double importance = 3.0,
+            [McpParam(Description = "关联角色 ThingID，逗号分隔。如 pawn_123,pawn_456",
+                      Required = McpRequired.False)] string actorIds = null,
+            [McpParam(Description = "空间位置提示，如 '殖民地广场'",
+                      Required = McpRequired.False)] string mapHint = null)
+        {
+            try
+            {
+                var manager = _getWorkspaceManager();
+                if (manager == null) return "{\"success\":false,\"error\":\"WorkspaceManager unavailable\"}";
+
+                var ws = manager.Get(targetWorkspaceId);
+                if (ws == null)
+                    return "{\"success\":false,\"error\":\"target workspace not found\"}";
+
+                if (ws.Status != WorkspaceStatus.Active)
+                    return "{\"success\":false,\"error\":\"target workspace is not Active\"}";
+
+                var eventId = "dir_" + Guid.NewGuid().ToString("N").Substring(0, 8);
+
+                var actorList = new List<EventActorRef>();
+                if (!string.IsNullOrEmpty(actorIds))
+                {
+                    foreach (var id in ParseStringList(actorIds))
+                        actorList.Add(EventActorRef.Pawn(id, id, "Bystander"));
+                }
+
+                var eventCard = new EventCardData
+                {
+                    EventID = eventId,
+                    DefName = defName,
+                    Importance = (float)importance,
+                    Actors = actorList,
+                    MapHint = mapHint ?? "",
+                    Payload = new Dictionary<string, string>
+                    {
+                        { "description", description },
+                        { "source", "director" }
+                    }
+                };
+
+                ws.EventPool.Append(eventCard);
+
+                var w = new JsonWriter(256);
+                w.Prop("success", true);
+                w.Prop("eventId", eventId);
+                w.Prop("defName", defName);
+                w.Prop("importance", eventCard.Importance, "F2");
+                return w.Close();
+            }
+            catch (Exception e)
+            {
+                _logger.Warning($"[NPCLife.DirectionMcp] create_event failed: {e.Message}");
+                return "{\"success\":false,\"error\":" + JsonHelper.Quote(e.Message) + "}";
             }
         }
 
@@ -286,15 +360,13 @@ namespace NPCLife.Workspace
         /// 将事件从源工作空间推送到目标工作空间。可附加留言。
         /// </summary>
         [McpTool(Name = "route_events",
-                 Description = "将事件从源工作空间的事件池推送到目标工作空间。可附加留言、知识库词条查询和聚焦角色。源和目标都必须是已存在的工作空间 ID。")]
+                 Description = "将事件从源工作空间的事件池推送到目标工作空间。可附加留言和聚焦角色。源和目标都必须是已存在的工作空间 ID。")]
         public string RouteEvents(
             [McpParam(Description = "源工作空间 ID（事件从这里取）")] string sourceWorkspaceId,
             [McpParam(Description = "目标工作空间 ID（事件推送到这里）")] string targetWorkspaceId,
             [McpParam(Description = "要路由的事件 ID，多个用逗号分隔")] string eventIds,
             [McpParam(Description = "可选留言：附带给目标工作空间的备注",
                       Required = McpRequired.False)] string message = null,
-            [McpParam(Description = "可选知识库词条名，逗号分隔。这些词条会在目标 Agent 激活时查询知识库，命中结果注入提示词。注意：这是知识库中的词条名（如“心灵波动”），不是事件分类标签。",
-                      Required = McpRequired.False)] string keywords = null,
             [McpParam(Description = "可选聚焦角色 ThingID，逗号分隔。导演指定本轮叙事应重点关注的角色，编剧激活时可见。每次推送覆盖更新。",
                       Required = McpRequired.False)] string focusCharacterIds = null)
         {
@@ -303,42 +375,25 @@ namespace NPCLife.Workspace
                 var manager = _getWorkspaceManager();
                 if (manager == null)
                     return "{\"success\":false,\"error\":\"WorkspaceManager unavailable\"}";
-
+        
                 var ids = ParseStringList(eventIds);
                 if (ids.Count == 0)
                     return "{\"success\":false,\"error\":\"no eventIds provided\"}";
-
+        
                 var sourceWs = manager.Get(sourceWorkspaceId);
                 if (sourceWs == null)
                     return "{\"success\":false,\"error\":\"source workspace not found\"}";
-
-                var keywordList = ParseStringList(keywords);
+        
                 var focusList = ParseStringList(focusCharacterIds);
-
+        
                 var events = new List<IGameEvent>();
                 foreach (var id in ids)
                 {
                     var evt = sourceWs.EventPool?.GetById(id);
                     if (evt != null)
-                    {
-                        if (keywordList.Count > 0)
-                        {
-                            // 深拷贝事件并附加查询词条
-                            var copy = EventCardData.From(evt);
-                            foreach (var kw in keywordList)
-                            {
-                                if (!copy.Keywords.Contains(kw))
-                                    copy.Keywords.Add(kw);
-                            }
-                            events.Add(copy);
-                        }
-                        else
-                        {
-                            events.Add(evt);
-                        }
-                    }
+                        events.Add(evt);
                 }
-
+        
                 int routed = 0;
                 if (events.Count > 0 && manager.RouteEvents(targetWorkspaceId, events, focusList.Count > 0 ? focusList : null))
                     routed = events.Count;

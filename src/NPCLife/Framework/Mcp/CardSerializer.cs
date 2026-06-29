@@ -73,7 +73,6 @@ namespace NPCLife.Framework.Mcp
             {
                 EventID = dict.TryGetValue("eventId", out var v) ? v : "",
                 DefName = dict.TryGetValue("defName", out v) ? v : "",
-                Tick = dict.TryGetValue("tick", out v) && int.TryParse(v, out var tick) ? tick : 0,
                 Importance = dict.TryGetValue("importance", out v) && float.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var imp) ? imp : 0f,
                 MapHint = dict.TryGetValue("mapHint", out v) ? v : "",
                 Actors = DeserializeActors(dict.TryGetValue("actors", out v) ? v : "[]"),
