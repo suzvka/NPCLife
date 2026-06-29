@@ -14,7 +14,7 @@ namespace NPCLife.Infrastructure.Knowledge
     {
         private readonly ILogger _logger;
 
-        private const string StoreKey = "rimlife_knowledge";
+        private const string StoreKey = "npclife_knowledge";
 
         private readonly Dictionary<string, KnowledgeEntry> _entries
             = new Dictionary<string, KnowledgeEntry>(StringComparer.OrdinalIgnoreCase);

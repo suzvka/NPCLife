@@ -18,7 +18,7 @@ namespace NPCLife.Infrastructure
         private readonly List<InteractionRecord> _records = new List<InteractionRecord>();
         private readonly IAuthorityStore _store;
         private readonly ILogger _logger;
-        private const string StoreKey = "rimlife_interactions";
+        private const string StoreKey = "npclife_interactions";
 
         /// <summary>
         /// 创建交互历史存储实例。

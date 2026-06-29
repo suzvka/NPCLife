@@ -26,7 +26,7 @@ namespace NPCLife.Workspace
         private readonly DriverConfig _driverConfig;
         private readonly ICardSerializer _serializer;
         private readonly Action<string> _onWorkspaceReady;
-        private const string StoreKey = "rimlife_workspaces";
+        private const string StoreKey = "npclife_workspaces";
 
         public WorkspaceManager(IAuthorityStore store, ILogger logger, Func<string> timeProvider, DriverConfig driverConfig, ICardSerializer serializer = null, Action<string> onWorkspaceReady = null)
         {
