@@ -52,7 +52,7 @@ namespace NPCLife.Workspace
         /// 创建新的剧情线工作空间。创建者角色固定为 Director。
         /// </summary>
         [McpTool(Name = "create_workspace",
-                 Description = "创建新的上下文空间（剧情线工作空间），返回工作空间完整信息。创建者角色为 Director。")]
+                 Description = "创建新的上下文空间（剧情线工作空间），返回工作空间完整信息。角色为 Screenwriter，由编剧负责内容创作，Director 负责协调。")]
         public string CreateWorkspace(
             [McpParam(Description = "人类可读标签，如 'RaidAftermath'")] string label,
             [McpParam(Description = "语义标签，逗号分隔，如 'Combat,Romance'",
@@ -65,7 +65,7 @@ namespace NPCLife.Workspace
 
                 var tagList = ParseStringList(tags);
 
-                var ws = manager.Create(label, WorkspaceRole.Director);
+                var ws = manager.Create(label, WorkspaceRole.Screenwriter);
                 return SerializeDirectorView(ws);
             }
             catch (Exception e)
