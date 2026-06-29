@@ -81,12 +81,6 @@ namespace NPCLife.Infrastructure.Llm
                 {
                     ct.ThrowIfCancellationRequested();
 
-                    // 注入模型名到请求
-                    if (string.IsNullOrEmpty(request.Model) && !string.IsNullOrEmpty(credential.ModelName))
-                    {
-                        request.Model = credential.ModelName;
-                    }
-
                     var adapter = CreateAdapter(credential);
                     var response = adapter.Chat(request);
 
@@ -136,10 +130,6 @@ namespace NPCLife.Infrastructure.Llm
                     {
                         // 每次尝试用独立的请求副本（避免前次修改污染）
                         var attemptRequest = CloneRequest(request);
-                        if (string.IsNullOrEmpty(attemptRequest.Model) && !string.IsNullOrEmpty(credential.ModelName))
-                        {
-                            attemptRequest.Model = credential.ModelName;
-                        }
 
                         var adapter = CreateAdapter(credential);
                         var response = adapter.Chat(attemptRequest);
@@ -172,7 +162,7 @@ namespace NPCLife.Infrastructure.Llm
 
                     // 还有下一个凭证则继续
                     _logger?.Warning(
-                        $"[NPCLife.LlmAccessor] Fallback: credential[{i}] ({credential.ModelName}) failed: {lastError}. " +
+                        $"[NPCLife.LlmAccessor] Fallback: credential[{i}] failed: {lastError}. " +
                         $"{(i + 1 < credentials.Count ? "Trying next..." : "All credentials exhausted.")}");
                 }
 

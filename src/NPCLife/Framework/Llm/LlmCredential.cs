@@ -17,7 +17,6 @@ namespace NPCLife.Framework.Llm
         /// <summary>API 密钥。</summary>
         public string ApiKey { get; set; }
 
-        /// <summary>模型名称。</summary>
         public string ModelName { get; set; }
 
         /// <summary>提供商类型，决定使用哪个适配器。</summary>

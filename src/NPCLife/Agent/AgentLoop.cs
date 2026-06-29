@@ -57,6 +57,7 @@ namespace NPCLife.Agent
         private readonly float _temperature;
         private readonly List<(string Cred, string Model)> _modelRefs;
         private readonly string _currentModelJson;
+        private string _currentModelName;
 
         // 状态机字段
         private volatile AgentRunState _state = AgentRunState.Idle;
@@ -97,6 +98,7 @@ namespace NPCLife.Agent
             _temperature = deps.Temperature > 0 ? deps.Temperature : 0.7f;
             _modelRefs = ParseModelRefs(workspace.ModelRefs);
             _currentModelJson = workspace.CurrentModel;
+            _currentModelName = ParseSingleRef(_currentModelJson)?.Model;
 
             // 订阅池子事件——唯一激活路径
             _pool.OnThresholdReached += OnPoolChanged;
@@ -209,6 +211,12 @@ namespace NPCLife.Agent
                 var credentials = ResolveCredentials();
                 if (credentials.Count == 0)
                     throw new InvalidOperationException("No active credentials configured");
+
+                // 确保模型名已设置（回退路径：从首个凭证提取）
+                if (string.IsNullOrEmpty(_currentModelName) && credentials.Count > 0)
+                {
+                    _currentModelName = credentials[0].ModelName;
+                }
 
                 // --- LLM + Tool 循环 ---
                 while (true)
@@ -469,6 +477,7 @@ namespace NPCLife.Agent
         {
             return new LlmRequest
             {
+                Model = _currentModelName ?? "",
                 Messages = new List<LlmMessage>(_messages),
                 ToolsJson = McpSkillRegistry.GetActiveToolsJson(_skillIds),
                 Temperature = _temperature
