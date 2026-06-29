@@ -38,7 +38,7 @@ namespace NPCLife.Workspace
         {
             new("colony_overview", "殖民地全局",
                 "殖民地概览、近期事件、活跃目标、资源库存",
-                WorkspaceRole.Director, WorkspaceRole.Screenwriter),
+                WorkspaceRole.Director),
 
             new("character_query", "角色查询",
                 "获取角色完整人物卡、按条件筛选殖民者、列出全部角色",
@@ -50,7 +50,7 @@ namespace NPCLife.Workspace
 
             new("event_query", "事件回溯",
                 "多维事件历史查询（标签、时间、Actor、严重度）",
-                WorkspaceRole.Director, WorkspaceRole.Screenwriter, WorkspaceRole.Improviser),
+                WorkspaceRole.Director, WorkspaceRole.Improviser),
 
             new("environment_query", "环境感知",
                 "查询角色当前所处的环境信息（室内外、温光、天气、房间）",
@@ -58,7 +58,7 @@ namespace NPCLife.Workspace
 
             new("knowledge_management", "知识管理",
                 "词条查询、学习、列表、删除、统计",
-                WorkspaceRole.Director, WorkspaceRole.Screenwriter),
+                WorkspaceRole.Director),
 
             new("workspace_direction", "工作空间(导演)",
                 "剧情线工作空间的创建、分支、合并、生命周期管理。导演专用。",
