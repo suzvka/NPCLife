@@ -12,10 +12,9 @@ namespace NPCLife.Workspace
     /// <summary>
     /// 工作空间内部事件池。实现 IEventLog。
     ///
-    /// 双层结构：
-    /// - pending 缓冲区：存储在 WorkspaceState 的 KV 字段中（EventCache/PendingEventIds/PendingImportance），
-    ///   随 WorkspaceState 持久化到存档。Agent drain 时清空。
-    /// - recent 历史缓冲：仅维护在内存中（零持久化），保留近期事件供 Query/GetById 查询。
+    /// 单一事件池结构：
+    /// - EventCache：所有事件的持久存储（KV），事件写入后长期保留，供 Query/GetById/route_events 查询。
+    /// - PendingEventIds + PendingImportance：跟踪待处理事件，Agent drain 时清空。
     ///
     /// 阈值检测在每次 Append 后评估，达到时触发 OnThresholdReached。
     ///
@@ -28,7 +27,6 @@ namespace NPCLife.Workspace
         private readonly DriverConfig _config;
         private readonly ICardSerializer _serializer;
 
-        private readonly List<IGameEvent> _recent = new List<IGameEvent>();
         private readonly HashSet<string> _pendingFingerprints = new HashSet<string>();
         private int _totalAppended;
 
@@ -65,28 +63,11 @@ namespace NPCLife.Workspace
                 return;
             }
 
-            // 写入 pending 缓冲区（持久化到 WorkspaceState）
+            // 写入事件池（持久化到 WorkspaceState）
             string eventJson = _serializer.SerializeEvent(evt);
             _ws.EventCache[evt.EventID] = eventJson;
             _ws.PendingEventIds.Add(evt.EventID);
             _ws.PendingImportance += evt.Importance;
-
-            // 写入 recent 历史缓冲（仅内存）
-            _recent.Add(evt);
-            while (_recent.Count > _config.RecentHistoryCapacity)
-            {
-                int removeIdx = 0;
-                float minImportance = _recent[0].Importance;
-                for (int i = 1; i < _recent.Count; i++)
-                {
-                    if (_recent[i].Importance < minImportance)
-                    {
-                        minImportance = _recent[i].Importance;
-                        removeIdx = i;
-                    }
-                }
-                _recent.RemoveAt(removeIdx);
-            }
 
             _totalAppended++;
 
@@ -105,14 +86,14 @@ namespace NPCLife.Workspace
         }
 
         // ================================================================
-        // IEventLog: 查询（查 recent 历史缓冲）
+        // IEventLog: 查询（从 EventCache 读取）
         // ================================================================
 
         public IReadOnlyList<IGameEvent> Query(EventQuery query)
         {
             if (query == null) query = EventQuery.All;
 
-            IEnumerable<IGameEvent> result = _recent;
+            IEnumerable<IGameEvent> result = DeserializeAllCached();
 
             if (!string.IsNullOrEmpty(query.ActorId))
                 result = result.Where(e => e.Actors != null && e.Actors.Any(a => a.ID == query.ActorId));
@@ -130,7 +111,7 @@ namespace NPCLife.Workspace
 
         public int Count(EventQuery query)
         {
-            if (query == null) return _recent.Count;
+            if (query == null) return _ws.EventCache?.Count ?? 0;
             var q = new EventQuery
             {
                 ActorId = query.ActorId,
@@ -141,17 +122,37 @@ namespace NPCLife.Workspace
             return Query(q).Count;
         }
 
-        public IGameEvent Latest => _recent.Count > 0 ? _recent[_recent.Count - 1] : null;
+        public IGameEvent Latest
+        {
+            get
+            {
+                if (_ws.EventCache == null || _ws.EventCache.Count == 0) return null;
+                // EventCache 是 Dictionary，无顺序保证；取 PendingEventIds 最后一条或全量最后一条
+                var keys = _ws.EventCache.Keys;
+                string lastKey = null;
+                foreach (var k in keys) lastKey = k;
+                return lastKey != null && _ws.EventCache.TryGetValue(lastKey, out var json)
+                    ? _serializer.DeserializeEvent(json) : null;
+            }
+        }
 
         public IGameEvent GetById(string eventId)
         {
             if (string.IsNullOrEmpty(eventId)) return null;
-            for (int i = _recent.Count - 1; i >= 0; i--)
-            {
-                if (string.Equals(_recent[i].EventID, eventId, StringComparison.Ordinal))
-                    return _recent[i];
-            }
+            if (_ws.EventCache != null && _ws.EventCache.TryGetValue(eventId, out var json))
+                return _serializer.DeserializeEvent(json);
             return null;
+        }
+
+        /// <summary>从 EventCache 反序列化所有事件。</summary>
+        private IEnumerable<IGameEvent> DeserializeAllCached()
+        {
+            if (_ws.EventCache == null) yield break;
+            foreach (var kv in _ws.EventCache)
+            {
+                var evt = _serializer.DeserializeEvent(kv.Value);
+                if (evt != null) yield return evt;
+            }
         }
 
         public int TotalAppended => _totalAppended;
@@ -186,6 +187,26 @@ namespace NPCLife.Workspace
             _ws.PendingImportance = 0;
             _pendingFingerprints.Clear();
             return events;
+        }
+
+        public void ClearCache()
+        {
+            _ws.EventCache?.Clear();
+        }
+
+        public bool HasPendingExcept(string excludeDefName)
+        {
+            if (_ws.PendingEventIds == null || _ws.EventCache == null) return false;
+            foreach (var eventId in _ws.PendingEventIds)
+            {
+                if (_ws.EventCache.TryGetValue(eventId, out var json))
+                {
+                    var evt = _serializer.DeserializeEvent(json);
+                    if (evt != null && !string.Equals(evt.DefName, excludeDefName, StringComparison.Ordinal))
+                        return true;
+                }
+            }
+            return false;
         }
 
         // ================================================================

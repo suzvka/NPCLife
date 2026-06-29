@@ -390,6 +390,10 @@ namespace NPCLife.Agent
             _state = AgentRunState.Finishing;
             int count = _drained?.Count ?? 0;
             int rounds = _round;
+
+            // 清空事件缓存：本轮已处理的事件完成使命，未用到的也不再保留
+            _pool.ClearCache();
+
             _drained = null;
             _messages = null;
 

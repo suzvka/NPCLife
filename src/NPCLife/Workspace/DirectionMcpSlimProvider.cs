@@ -50,10 +50,10 @@ namespace NPCLife.Workspace
             => _inner.CreateWorkspace(label, tags);
 
         [McpTool(Name = "create_event",
-                 Description = "在指定工作空间的事件池中创建新事件卡片。用于定时器触发无外部事件时主动注入叙事驱动力。\n" +
-                               "DefName 建议以 DirectorBeat_ 为前缀。创建的事件直接追加到目标工作空间。")]
+                 Description = "在编剧/即兴编剧工作空间中创建新事件卡片，将导演的叙事意图注入目标空间以激活编剧。\n" +
+                               "目标必须是编剧或即兴编剧工作空间，禁止填导演自己的工作空间 ID。")]
         public string CreateEvent(
-            [McpParam(Description = "目标工作空间 ID")] string targetWorkspaceId,
+            [McpParam(Description = "目标编剧/即兴编剧工作空间 ID（不是导演自己的 ID）")] string targetWorkspaceId,
             [McpParam(Description = "事件定义名，建议以 DirectorBeat_ 为前缀")] string defName,
             [McpParam(Description = "事件叙事描述。编剧在提示词中看到此文本。")] string description,
             [McpParam(Description = "重要度，默认 3.0。越高越容易触发编剧激活。")] double importance = 3.0,

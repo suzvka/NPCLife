@@ -124,8 +124,8 @@ namespace NPCLife.Infrastructure.Mcp
         /// 获取当前游戏时间字符串。时间信息通常随 Agent 唤醒事件一同注入，
         /// 此工具仅在 Agent 需要主动获取当前时间时使用。
         /// </summary>
-        [McpTool(Name = "get_current_time",
-                 Description = "获取当前游戏时间的格式化字符串。返回值为游戏侧提供的原样时间文本（如 '第2年·夏季·第5天·14h'）。")]
+        //[McpTool(Name = "get_current_time",
+        //         Description = "获取当前游戏时间的格式化字符串。返回值为游戏侧提供的原样时间文本（如 '第2年·夏季·第5天·14h'）。")]
         public string GetCurrentTime()
         {
             try

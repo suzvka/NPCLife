@@ -84,11 +84,11 @@ namespace NPCLife.Workspace
         /// 创建的事件 DefName 建议以 DirectorBeat_ 为前缀。
         /// </summary>
         [McpTool(Name = "create_event",
-                 Description = "在指定工作空间的事件池中创建新事件卡片。用于定时器触发无外部事件时主动注入叙事驱动力。\n" +
-                               "DefName 建议以 DirectorBeat_ 为前缀以区分导演事件和游戏事件，如 DirectorBeat_StormApproaching。\n" +
-                               "创建的事件直接追加到目标工作空间，达到阈值后激活编剧。可附带知识索引标签。")]
+                 Description = "在编剧/即兴编剧工作空间中创建新事件卡片，将导演的叙事意图注入目标空间以激活编剧。\n" +
+                               "目标必须是编剧或即兴编剧工作空间（通过 create_workspace 创建的），禁止填导演自己的工作空间 ID。\n" +
+                               "DefName 建议以 DirectorBeat_ 为前缀。可附带知识索引标签。")]
         public string CreateEvent(
-            [McpParam(Description = "目标工作空间 ID。事件将注入此空间的事件池。")] string targetWorkspaceId,
+            [McpParam(Description = "目标编剧/即兴编剧工作空间 ID（不是导演自己的 ID）。")] string targetWorkspaceId,
             [McpParam(Description = "事件定义名，建议以 DirectorBeat_ 为前缀。")] string defName,
             [McpParam(Description = "事件叙事描述。编剧在提示词中看到此文本作为事件主要内容。")] string description,
             [McpParam(Description = "重要度，默认 3.0。越高越容易触发编剧激活。范围建议 1.0-5.0。")] double importance = 3.0,
@@ -110,6 +110,12 @@ namespace NPCLife.Workspace
 
                 if (ws.Status != WorkspaceStatus.Active)
                     return "{\"success\":false,\"error\":\"target workspace is not Active\"}";
+
+                // 禁止向调用者自己的工作空间注入事件（事件流应为 Director → Screenwriter，单向）
+                var callerWsId = McpSkillRegistry.CurrentWorkspaceId.Value;
+                if (!string.IsNullOrEmpty(callerWsId)
+                    && string.Equals(callerWsId, targetWorkspaceId, StringComparison.Ordinal))
+                    return "{\"success\":false,\"error\":\"cannot create events in your own workspace. Target must be a screenwriter/improviser workspace.\"}";
 
                 var eventId = "dir_" + Guid.NewGuid().ToString("N").Substring(0, 8);
 
