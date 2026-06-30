@@ -64,6 +64,12 @@ namespace NPCLife.Core
         void ClearCache();
 
         /// <summary>
+        /// 从 EventCache 中移除指定事件。用于 Agent 选择性清理已处理事件，保留未处理事件供下一轮复用。
+        /// 同时从 PendingEventIds 中移除（如果存在），并重新计算 pending 重要度。
+        /// </summary>
+        void RemoveEvents(IReadOnlyCollection<string> eventIds);
+
+        /// <summary>
         /// pending 缓冲区中是否存在 DefName 不等于 <paramref name="excludeDefName"/> 的事件。
         /// AgentLoop 用此方法过滤 TimerPulse：仅 TimerPulse 时不自动激活，等待真实事件到达后再一并处理。
         /// </summary>

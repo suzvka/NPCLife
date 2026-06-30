@@ -211,11 +211,24 @@ namespace NPCLife.Agent
                 };
                 AgentPipeline.RunBeforePrompt(promptCtx);
 
-                _messages = new List<LlmMessage>
+                if (_messages == null || _messages.Count == 0)
                 {
-                    LlmMessage.System(_systemPrompt),
-                    LlmMessage.User(promptCtx.UserMessage)
-                };
+                    // 首次激活：完整上下文 + 伪造对话前缀
+                    // 注入的上下文被伪装为 LLM 已审阅并确认的内容，
+                    // 使后续激活时 LLM 跟随自身的“已获取”模式，避免重复查询。
+                    _messages = new List<LlmMessage>
+                    {
+                        LlmMessage.System(_systemPrompt),
+                        LlmMessage.User(promptCtx.UserMessage),
+                        LlmMessage.Assistant("好的，信息已确认。开始执行任务。"),
+                        LlmMessage.User("请继续")
+                    };
+                }
+                else
+                {
+                    // 后续激活：追加新事件作为增量 user 消息
+                    _messages.Add(LlmMessage.User(promptCtx.UserMessage));
+                }
 
                 // 解析凭证：优先使用模型引用列表，回退到全局激活凭证
                 var credentials = ResolveCredentials();
@@ -391,11 +404,21 @@ namespace NPCLife.Agent
             int count = _drained?.Count ?? 0;
             int rounds = _round;
 
-            // 清空事件缓存：本轮已处理的事件完成使命，未用到的也不再保留
-            _pool.ClearCache();
+            // 选择性清除：TimerPulse 总是清除；LLM 标记的 triggerEventIds 清除；其他事件保留
+            var toRemove = new HashSet<string>();
+            var triggerIds = ExtractLastRoundTriggerEventIds();
+
+            foreach (var evt in _drained ?? Enumerable.Empty<IGameEvent>())
+            {
+                if (evt.DefName == "TimerPulse" || triggerIds.Contains(evt.EventID))
+                    toRemove.Add(evt.EventID);
+            }
+
+            if (toRemove.Count > 0)
+                _pool.RemoveEvents(toRemove);
 
             _drained = null;
-            _messages = null;
+            // _messages 保留，供下次激活复用
 
             _logger.Message($"[NPCLife.Agent] Loop complete. {count} events processed. (runId={runId})");
 
@@ -511,14 +534,32 @@ namespace NPCLife.Agent
             sb.AppendLine();
             sb.AppendLine(_serializer.SerializeEventList(events));
 
-            sb.AppendLine();
-            sb.AppendLine("请审查事件列表，挑选值得发展的事件，使用 create_workspace / branch_workspace 等工具创建剧情线工作空间。");
-            sb.AppendLine("如果工作空间上下文中包含 focusCharacterIds（导演指定的聚焦角色），请优先围绕这些角色展开叙事。");
-
-            if (_contextProvider != null)
+            if (_messages == null || _messages.Count == 0)
             {
+                // 首次激活：聚焦角色提示 + 上下文注入
                 sb.AppendLine();
-                sb.AppendLine(_contextProvider());
+                var focusIds = _workspace?.FocusCharacterIds;
+                if (focusIds != null && focusIds.Count > 0)
+                {
+                    sb.AppendLine($"聚焦角色：{string.Join(", ", focusIds)}");
+                }
+
+                if (_contextProvider != null)
+                {
+                    sb.AppendLine();
+                    sb.AppendLine(_contextProvider());
+                }
+            }
+            else
+            {
+                // 后续激活：已查询角色提示（系统提示词已覆盖复用指引，此处仅提供角色清单）
+                sb.AppendLine();
+                var focusIds = _workspace?.FocusCharacterIds;
+                if (focusIds != null && focusIds.Count > 0)
+                {
+                    sb.AppendLine($"已查询角色：{string.Join(", ", focusIds)}（禁止重新查询）");
+                }
+                sb.AppendLine("请结合历史上下文和新事件直接创作。");
             }
 
             return sb.ToString();
@@ -532,6 +573,24 @@ namespace NPCLife.Agent
         {
             if (string.IsNullOrEmpty(result)) return "(empty)";
             return result.Length > 200 ? result.Substring(0, 200) + "..." : result;
+        }
+
+        /// <summary>
+        /// 提取最近一轮 finish_round 中 LLM 标记的 triggerEventIds。
+        /// 这些事件被视为“已消费”，在 FinishOnce 中选择性清除。
+        /// </summary>
+        private HashSet<string> ExtractLastRoundTriggerEventIds()
+        {
+            var result = new HashSet<string>();
+            if (_workspace?.Rounds == null || _workspace.Rounds.Count == 0) return result;
+
+            var lastRound = _workspace.Rounds[_workspace.Rounds.Count - 1];
+            if (lastRound.TriggerEventIds != null)
+            {
+                foreach (var id in lastRound.TriggerEventIds)
+                    result.Add(id);
+            }
+            return result;
         }
 
         /// <summary>获取当前运行状态。</summary>

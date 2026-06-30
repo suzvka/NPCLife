@@ -194,6 +194,42 @@ namespace NPCLife.Workspace
             _ws.EventCache?.Clear();
         }
 
+        public void RemoveEvents(IReadOnlyCollection<string> eventIds)
+        {
+            if (eventIds == null || eventIds.Count == 0) return;
+            if (_ws.EventCache == null) return;
+
+            foreach (var id in eventIds)
+            {
+                _ws.EventCache.Remove(id);
+                _ws.PendingEventIds?.Remove(id);
+            }
+            RecalcPendingImportance();
+        }
+
+        /// <summary>
+        /// 重新计算 pending 缓冲区的累积重要度。
+        /// 在 RemoveEvents 后调用，确保 TotalImportance 与实际 pending 事件一致。
+        /// </summary>
+        private void RecalcPendingImportance()
+        {
+            if (_ws.PendingEventIds == null || _ws.EventCache == null)
+            {
+                _ws.PendingImportance = 0;
+                return;
+            }
+            float total = 0;
+            foreach (var id in _ws.PendingEventIds)
+            {
+                if (_ws.EventCache.TryGetValue(id, out var json))
+                {
+                    var evt = _serializer.DeserializeEvent(json);
+                    if (evt != null) total += evt.Importance;
+                }
+            }
+            _ws.PendingImportance = total;
+        }
+
         public bool HasPendingExcept(string excludeDefName)
         {
             if (_ws.PendingEventIds == null || _ws.EventCache == null) return false;
