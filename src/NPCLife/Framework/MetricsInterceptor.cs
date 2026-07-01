@@ -14,11 +14,27 @@ namespace NPCLife.Framework
     {
         private readonly AgentRole _role;
 
+        // ---- 核心修复：3x 重复计数 ----
+        // 管线为 Director/Screenwriter/Improviser 各注册一个 MetricsInterceptor 实例，
+        // 但对每个 Agent 的事件统一调用所有拦截器。
+        // 若所有实例都记录工具调用，同一调用会被计数 3 次。
+        //
+        // 解决方案：用 [ThreadStatic] 引用跟踪"当前线程的拥有者拦截器"。
+        // 只有 _activeOwner == this 的拦截器才执行实际记录，其余实例静默跳过。
         [ThreadStatic]
-        private static string _currentSessionId;
+        private static MetricsInterceptor _activeOwner;
+
+        [ThreadStatic]
+        private static string _activeSessionId;
 
         [ThreadStatic]
         private static int _llmCallCountInSession;
+
+        /// <summary>
+        /// 获取当前线程上活跃拦截器的会话 ID（供外部观察者读取）。
+        /// 仅供 Token 消耗采集、知识服务记录等非核心度量场景使用。
+        /// </summary>
+        public static string CurrentSessionId => _activeSessionId;
 
         /// <summary>
         /// 创建度量拦截器。
@@ -35,14 +51,19 @@ namespace NPCLife.Framework
 
         /// <summary>
         /// 在每个 LLM 请求发送前调用。检测是否需要开始新会话。
+        /// 仅第一个拦截器实例获得"拥有者"身份，其余实例跳过。
         /// </summary>
         public override void OnBeforeLlm(LlmContext ctx)
         {
-            if (_currentSessionId == null)
+            // 抢占拥有者：同一线程上只有第一个到达的拦截器生效
+            if (_activeOwner == null)
             {
-                _currentSessionId = RuntimeMetrics.BeginSession(_role);
+                _activeOwner = this;
+                _activeSessionId = RuntimeMetrics.BeginSession(_role);
                 _llmCallCountInSession = 0;
             }
+            if (_activeOwner != this) return; // 非拥有者，跳过
+
             _llmCallCountInSession++;
         }
 
@@ -54,32 +75,34 @@ namespace NPCLife.Framework
         }
 
         /// <summary>
-        /// 工具调用后：记录调用次数和成功/失败。
+        /// 工具调用后：记录调用次数和成功/失败。仅拥有者拦截器执行。
         /// </summary>
         public override void OnAfterToolCall(ToolCallContext ctx)
         {
-            if (_currentSessionId == null || ctx?.ToolName == null) return;
+            if (_activeOwner != this || _activeSessionId == null || ctx?.ToolName == null) return;
 
             bool success = !IsErrorResult(ctx.Result);
-            RuntimeMetrics.RecordToolCall(_currentSessionId, ctx.ToolName, success);
+            RuntimeMetrics.RecordToolCall(_activeSessionId, ctx.ToolName, success);
         }
 
         /// <summary>
-        /// Agent 循环结束：记录统计并结束会话。
+        /// Agent 循环结束：记录统计并结束会话。仅拥有者拦截器清理状态。
         /// </summary>
         public override void OnLoopFinished(LoopContext ctx)
         {
+            // 所有拦截器都记录循环统计（角色维度）
             RuntimeMetrics.RecordLoopFinished(
                 ctx.Rounds,
                 ctx.EventsProcessed,
                 ctx.NormalCompletion,
                 _role);
 
-            if (_currentSessionId != null)
+            if (_activeOwner == this && _activeSessionId != null)
             {
-                RuntimeMetrics.EndSession(_currentSessionId);
-                _currentSessionId = null;
+                RuntimeMetrics.EndSession(_activeSessionId);
+                _activeSessionId = null;
                 _llmCallCountInSession = 0;
+                _activeOwner = null;
             }
         }
 
@@ -99,7 +122,7 @@ namespace NPCLife.Framework
         /// <summary>
         /// 获取当前会话 ID（调试用）。
         /// </summary>
-        public static string CurrentSessionId => _currentSessionId;
+        public static string SessionId => _activeSessionId;
 
         /// <summary>
         /// 获取当前角色（调试用）。
