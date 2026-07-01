@@ -25,8 +25,6 @@ namespace NPCLife.Framework.Mcp
             w.Prop("eventId", evt.EventID);
             w.Prop("defName", evt.DefName);
             w.Prop("importance", evt.Importance, "F2");
-            w.Prop("mapHint", evt.MapHint);
-
             if (evt.Actors != null && evt.Actors.Count > 0)
             {
                 var actorJsons = new List<string>();
@@ -74,7 +72,6 @@ namespace NPCLife.Framework.Mcp
                 EventID = dict.TryGetValue("eventId", out var v) ? v : "",
                 DefName = dict.TryGetValue("defName", out v) ? v : "",
                 Importance = dict.TryGetValue("importance", out v) && float.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var imp) ? imp : 0f,
-                MapHint = dict.TryGetValue("mapHint", out v) ? v : "",
                 Actors = DeserializeActors(dict.TryGetValue("actors", out v) ? v : "[]"),
                 Payload = DeserializePayload(dict.TryGetValue("payload", out v) ? v : "{}")
             };

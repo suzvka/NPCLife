@@ -53,10 +53,10 @@ namespace NPCLife.Tests.Framework
         // ================================================================
 
         [Fact]
-        public void InitializeDefaults_CreatesNineBusinessSkills()
+        public void InitializeDefaults_CreatesSixBusinessSkills()
         {
             McpSkillRegistry.InitializeDefaults();
-            Assert.Equal(9, McpSkillRegistry.SkillCount);
+            Assert.Equal(6, McpSkillRegistry.SkillCount);
         }
 
         [Fact]
@@ -67,12 +67,9 @@ namespace NPCLife.Tests.Framework
             Assert.Contains("colony_overview", ids);
             Assert.Contains("character_query", ids);
             Assert.Contains("relationship_query", ids);
-            Assert.Contains("event_query", ids);
-            Assert.Contains("environment_query", ids);
             Assert.Contains("knowledge_management", ids);
-            Assert.Contains("workspace_direction", ids);
-            Assert.Contains("workspace_writing", ids);
-            Assert.Contains("workspace_improviser", ids);
+            Assert.Contains("storyline_direction", ids);
+            Assert.Contains("storyline_writing", ids);
             Assert.DoesNotContain(McpSkillRegistry.SystemSkillId, ids);
         }
 

@@ -1,8 +1,10 @@
+using NPCLife.Cards;
 using NPCLife.Core;
 using NPCLife.Framework;
 using NPCLife.Framework.Mcp;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace NPCLife.Infrastructure.Mcp
 {
@@ -68,7 +70,7 @@ namespace NPCLife.Infrastructure.Mcp
         [McpTool(Name = "activate_skill",
                  Description = "为当前工作空间激活一个技能分组，使其中的工具在当前对话中可用。可多次调用叠加激活。返回新激活的工具定义。")]
         public string ActivateSkill(
-            [McpParam(Description = "要激活的技能 ID，如 colony_overview / character_query / knowledge_management 等。使用 list_skills 查看全部可用技能。")]
+            [McpParam(Description = "要激活的技能 ID")]
             string skillId)
         {
             try
@@ -97,7 +99,7 @@ namespace NPCLife.Infrastructure.Mcp
         [McpTool(Name = "deactivate_skill",
                  Description = "为当前工作空间反激活一个技能分组。system 技能不可反激活。已反激活的技能的工具将不再可用。")]
         public string DeactivateSkill(
-            [McpParam(Description = "要反激活的技能 ID。使用 list_skills 查看当前激活状态。")]
+            [McpParam(Description = "要反激活的技能 ID")]
             string skillId)
         {
             try
@@ -124,8 +126,8 @@ namespace NPCLife.Infrastructure.Mcp
         /// 获取当前游戏时间字符串。时间信息通常随 Agent 唤醒事件一同注入，
         /// 此工具仅在 Agent 需要主动获取当前时间时使用。
         /// </summary>
-        [McpTool(Name = "get_current_time",
-                 Description = "获取当前游戏时间的格式化字符串。返回值为游戏侧提供的原样时间文本（如 '第2年·夏季·第5天·14h'）。")]
+        //[McpTool(Name = "get_current_time",
+        //        Description = "获取当前游戏时间的格式化字符串。返回值为游戏侧提供的原样时间文本（如 '第2年·夏季·第5天·14h'）。")]
         public string GetCurrentTime()
         {
             try
@@ -150,6 +152,97 @@ namespace NPCLife.Infrastructure.Mcp
         public void Abort()
         {
             McpSkillRegistry.AbortRequested.Value = true;
+        }
+
+        // ================================================================
+        // 事件路由（通用：源剧情线 → 目标剧情线）
+        // ================================================================
+
+        /// <summary>
+        /// 将事件从当前剧情线推送到目标剧情线。可附加留言、聚焦角色和知识索引标签。
+        /// 默认从当前剧情线取事件（源 ID 留空即用当前上下文）。
+        /// </summary>
+        [McpTool(Name = "route_events",
+                 Description = "将事件推送到目标剧情线。默认从当前剧情线取事件。可附加留言、聚焦角色和知识索引标签。")]
+        public string RouteEvents(
+            [McpParam(Description = "目标剧情线 ID")]
+            string targetWorkspaceId,
+            [McpParam(Description = "要路由的事件 ID，多个用逗号分隔")]
+            string eventIds,
+            [McpParam(Description = "附带给目标剧情线的备注",
+                      Required = McpRequired.False)]
+            string message = null,
+            [McpParam(Description = "聚焦角色 ID，逗号分隔，用于指定该批事件应聚焦的角色",
+                      Required = McpRequired.False)]
+            string focusCharacterIds = null,
+            [McpParam(Description = "知识库索引标签，逗号分隔，用于标记专有名词，避免接收方产生误解",
+                      Required = McpRequired.False)]
+            string knowledgeTags = null)
+        {
+            try
+            {
+                var manager = _getWorkspaceManager();
+                if (manager == null)
+                    return "{\"success\":false,\"error\":\"WorkspaceManager unavailable\"}";
+
+                var ids = ParseStringList(eventIds);
+                if (ids.Count == 0)
+                    return "{\"success\":false,\"error\":\"no eventIds provided\"}";
+
+                var sourceWorkspaceId = McpSkillRegistry.CurrentWorkspaceId.Value;
+                if (string.IsNullOrEmpty(sourceWorkspaceId))
+                    return "{\"success\":false,\"error\":\"no source workspace context\"}";
+
+                var sourceWs = manager.Get(sourceWorkspaceId);
+                if (sourceWs == null)
+                    return "{\"success\":false,\"error\":\"source workspace not found\"}";
+
+                var focusList = ParseStringList(focusCharacterIds);
+
+                var events = new List<IGameEvent>();
+                foreach (var id in ids)
+                {
+                    var evt = sourceWs.EventPool?.GetById(id);
+                    if (evt == null) continue;
+
+                    if (!string.IsNullOrEmpty(knowledgeTags) && evt.Payload != null)
+                        evt.Payload["knowledge_tags"] = knowledgeTags;
+
+                    events.Add(evt);
+                }
+
+                int routed = 0;
+                if (events.Count > 0 && manager.RouteEvents(targetWorkspaceId, events, focusList.Count > 0 ? focusList : null))
+                    routed = events.Count;
+
+                var w = new JsonWriter(128);
+                w.Prop("success", routed > 0);
+                w.Prop("routed", routed);
+                w.Prop("total", ids.Count);
+                if (!string.IsNullOrEmpty(message))
+                    w.Prop("message", message);
+                if (routed < ids.Count)
+                    w.Prop("warning", $"{ids.Count - routed} event(s) not found or target workspace inactive");
+                return w.Close();
+            }
+            catch (Exception e)
+            {
+                _logger.Warning($"[NPCLife.SystemMcp] route_events failed: {e.Message}");
+                return "{\"success\":false,\"error\":" + JsonHelper.Quote(e.Message) + "}";
+            }
+        }
+
+        // ================================================================
+        // 辅助
+        // ================================================================
+
+        private static List<string> ParseStringList(string input)
+        {
+            if (string.IsNullOrEmpty(input)) return new List<string>();
+            return input.Split(new char[] { ',' })
+                .Select(s => s.Trim())
+                .Where(s => s.Length > 0)
+                .ToList();
         }
     }
 }

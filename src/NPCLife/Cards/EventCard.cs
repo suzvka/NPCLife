@@ -21,9 +21,6 @@ namespace NPCLife.Cards
         /// <summary>涉及的实体引用列表。</summary>
         IReadOnlyList<EventActorRef> Actors { get; }
 
-        /// <summary>空间提示 (例如 "殖民地西侧", "餐厅")。</summary>
-        string MapHint { get; }
-
         /// <summary>松结构扩展参数 (事件特有的数据)。</summary>
         IDictionary<string, string> Payload { get; }
     }
@@ -38,7 +35,6 @@ namespace NPCLife.Cards
         public string DefName { get; set; }
         public float Importance { get; set; }
         public List<EventActorRef> Actors { get; set; }
-        public string MapHint { get; set; }
         public Dictionary<string, string> Payload { get; set; }
         public Dictionary<string, string> ExtensionFields { get; set; }
         IReadOnlyList<EventActorRef> IGameEvent.Actors => Actors;
@@ -56,7 +52,6 @@ namespace NPCLife.Cards
                 Actors = source.Actors != null
                     ? source.Actors.Select(a => new EventActorRef { ID = a.ID, Name = a.Name, Role = a.Role, RefType = a.RefType }).ToList()
                     : new List<EventActorRef>(),
-                MapHint = source.MapHint,
                 Payload = source.Payload != null
                     ? new Dictionary<string, string>(source.Payload)
                     : new Dictionary<string, string>()

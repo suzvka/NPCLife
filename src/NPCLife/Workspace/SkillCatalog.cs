@@ -36,41 +36,29 @@ namespace NPCLife.Workspace
         /// </summary>
         public static readonly Entry[] AllSkills =
         {
-            new("colony_overview", "殖民地全局",
-                "殖民地概览、近期事件、活跃目标、资源库存",
+            new("colony_overview", "游戏全局状态",
+                "局势概览、近期事件、活跃目标、资源库存",
                 WorkspaceRole.Director),
 
-            new("character_query", "角色查询",
-                "获取角色完整人物卡、按条件筛选殖民者、列出全部角色",
+            new("character_query", "角色与环境查询",
+                "获取角色人物卡、按条件筛选殖民者、列出全部角色、查询角色当前所处环境（室内外、温光、天气、房间）",
                 WorkspaceRole.Director, WorkspaceRole.Screenwriter, WorkspaceRole.Improviser),
 
             new("relationship_query", "关系网络",
                 "查询角色社交关系、交互历史流水",
-                WorkspaceRole.Screenwriter),
-
-            new("event_query", "事件回溯",
-                "多维事件历史查询（标签、时间、Actor、严重度）",
-                WorkspaceRole.Director, WorkspaceRole.Improviser),
-
-            new("environment_query", "环境感知",
-                "查询角色当前所处的环境信息（室内外、温光、天气、房间）",
-                WorkspaceRole.Screenwriter),
+                WorkspaceRole.Screenwriter, WorkspaceRole.Improviser),
 
             new("knowledge_management", "知识管理",
                 "词条查询、学习、列表、删除、统计",
+                WorkspaceRole.Director,WorkspaceRole.Screenwriter, WorkspaceRole.Improviser),
+
+            new("storyline_direction", "剧情分支管理",
+                "剧情线的创建、分支、合并、生命周期管理",
                 WorkspaceRole.Director),
 
-            new("workspace_direction", "工作空间(导演)",
-                "剧情线工作空间的创建、分支、合并、生命周期管理。导演专用。",
-                WorkspaceRole.Director),
-
-            new("workspace_writing", "工作空间(编剧)",
-                "推送叙事回合、上报推进状态信号、事件路由。上下文由 prompt 自动注入。编剧专用。",
-                WorkspaceRole.Screenwriter),
-
-            new("workspace_improviser", "工作空间(即兴编剧)",
-                "处理突发、独立事件的叙事输出。逐句台词推送与编剧同构。即兴编剧专用。",
-                WorkspaceRole.Improviser),
+            new("storyline_writing", "写作工具集",
+                "用于创作具体台词脚本的工具",
+                WorkspaceRole.Screenwriter, WorkspaceRole.Improviser),
         };
 
         /// <summary>

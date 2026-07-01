@@ -52,8 +52,8 @@ namespace NPCLife.Tests.WorkspaceTests
                     defName: "DirectorBeat_TestEvent",
                     description: "A mysterious figure arrives at the colony gates.",
                     importance: 3.0,
-                    actorIds: "pawn_001,pawn_002",
-                    mapHint: "殖民地大门");
+                    actorIds: "pawn_001,pawn_002"
+                    );
 
                 // 断言返回 JSON
                 Assert.Contains("\"success\":true", result);
@@ -71,7 +71,6 @@ namespace NPCLife.Tests.WorkspaceTests
                 Assert.StartsWith("dir_", evt.EventID);
                 Assert.Equal("DirectorBeat_TestEvent", evt.DefName);
                 Assert.Equal(3f, evt.Importance);
-                Assert.Equal("殖民地大门", evt.MapHint);
                 Assert.Equal(2, evt.Actors.Count);
                 Assert.True(evt.Payload.ContainsKey("description"));
                 Assert.Equal("A mysterious figure arrives at the colony gates.", evt.Payload["description"]);
@@ -102,7 +101,6 @@ namespace NPCLife.Tests.WorkspaceTests
                 var evt = drained[0];
                 Assert.Equal(3f, evt.Importance); // 默认重要度
                 Assert.Empty(evt.Actors);
-                Assert.Equal("", evt.MapHint);
             }
         }
 

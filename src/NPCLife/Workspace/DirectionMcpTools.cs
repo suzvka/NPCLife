@@ -24,9 +24,9 @@ namespace NPCLife.Workspace
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public string HookId => "workspace_direction";
-        public string HookName => "工作空间(导演)";
-        public string HookDescription => "剧情线工作空间的创建、分支、合并、生命周期管理。导演专用。";
+        public string HookId => "storyline_direction";
+        public string HookName => "剧情分支管理";
+        public string HookDescription => "剧情线的创建、分支、合并、生命周期管理";
 
         public IReadOnlyList<McpTool> GetTools()
         {
@@ -36,12 +36,11 @@ namespace NPCLife.Workspace
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(CreateEvent)), this),
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(ListWorkspaces)), this),
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(GetWorkspace)), this),
-                McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(SuspendWorkspace)), this),
-                McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(ResumeWorkspace)), this),
+                //McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(SuspendWorkspace)), this),
+                //McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(ResumeWorkspace)), this),
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(CloseWorkspace)), this),
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(BranchWorkspace)), this),
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(MergeWorkspaces)), this),
-                McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(RouteEvents)), this),
             };
         }
         // ================================================================
@@ -49,13 +48,13 @@ namespace NPCLife.Workspace
         // ================================================================
 
         /// <summary>
-        /// 创建新的剧情线工作空间。创建者角色固定为 Director。
+        /// 创建新的剧情线剧情线。创建者角色固定为 Director。
         /// </summary>
-        [McpTool(Name = "create_workspace",
-                 Description = "创建新的上下文空间（剧情线工作空间），返回工作空间完整信息。角色为 Screenwriter，由编剧负责内容创作，Director 负责协调。")]
+        [McpTool(Name = "create_storyline",
+                 Description = "创建新的剧情线，返回剧情线完整信息。")]
         public string CreateWorkspace(
-            [McpParam(Description = "人类可读标签，如 'RaidAftermath'")] string label,
-            [McpParam(Description = "语义标签，逗号分隔，如 'Combat,Romance'",
+            [McpParam(Description = "剧情线标题")] string label,
+            [McpParam(Description = "剧情分类标签，有多个时用逗号分隔",
                       Required = McpRequired.False)] string tags = null)
         {
             try
@@ -80,23 +79,19 @@ namespace NPCLife.Workspace
         // ================================================================
 
         /// <summary>
-        /// 在目标工作空间的事件池中创建新事件卡片。导演可在无外部事件时主动注入叙事驱动力。
+        /// 在目标剧情线的事件池中创建新事件卡片。导演可在无外部事件时主动注入叙事驱动力。
         /// 创建的事件 DefName 建议以 DirectorBeat_ 为前缀。
         /// </summary>
         [McpTool(Name = "create_event",
-                 Description = "在指定工作空间的事件池中创建新事件卡片。用于定时器触发无外部事件时主动注入叙事驱动力。\n" +
-                               "DefName 建议以 DirectorBeat_ 为前缀以区分导演事件和游戏事件，如 DirectorBeat_StormApproaching。\n" +
-                               "创建的事件直接追加到目标工作空间，达到阈值后激活编剧。可附带知识索引标签。")]
+                 Description = "在指定剧情线中新建事件卡片")]
         public string CreateEvent(
-            [McpParam(Description = "目标工作空间 ID。事件将注入此空间的事件池。")] string targetWorkspaceId,
-            [McpParam(Description = "事件定义名，建议以 DirectorBeat_ 为前缀。")] string defName,
-            [McpParam(Description = "事件叙事描述。编剧在提示词中看到此文本作为事件主要内容。")] string description,
-            [McpParam(Description = "重要度，默认 3.0。越高越容易触发编剧激活。范围建议 1.0-5.0。")] double importance = 3.0,
-            [McpParam(Description = "关联角色 ThingID，逗号分隔。如 pawn_123,pawn_456",
+            [McpParam(Description = "目标剧情线 ID")] string targetWorkspaceId,
+            [McpParam(Description = "事件标题")] string defName,
+            [McpParam(Description = "事件内容")] string description,
+            [McpParam(Description = "重要度，默认 3.0。越高越容易触发编剧激活。范围建议 1.0-5.0")] double importance = 3.0,
+            [McpParam(Description = "关联角色 ThingID，逗号分隔",
                       Required = McpRequired.False)] string actorIds = null,
-            [McpParam(Description = "空间位置提示，如 '殖民地广场'",
-                      Required = McpRequired.False)] string mapHint = null,
-            [McpParam(Description = "知识库索引标签，逗号分隔。如 '心灵感应,殖民地历史'。编剧处理此事件时可在 payload 中看到这些标签。",
+            [McpParam(Description = "知识库索引标签，逗号分隔",
                       Required = McpRequired.False)] string knowledgeTags = null)
         {
             try
@@ -126,7 +121,6 @@ namespace NPCLife.Workspace
                     DefName = defName,
                     Importance = (float)importance,
                     Actors = actorList,
-                    MapHint = mapHint ?? "",
                     Payload = BuildCreateEventPayload(description, knowledgeTags)
                 };
 
@@ -151,13 +145,11 @@ namespace NPCLife.Workspace
         // ================================================================
 
         /// <summary>
-        /// 列出工作空间摘要（导演视图：含信号、统计，不含叙事内容）。
+        /// 列出剧情线摘要（导演视图：含信号、统计，不含叙事内容）。
         /// </summary>
-        [McpTool(Name = "list_workspaces",
-                 Description = "列出所有工作空间摘要（导演视图）。含信号、轮次数、角色数，不含叙事内容。可按状态过滤。")]
-        public string ListWorkspaces(
-            [McpParam(Description = "过滤状态：Active/Suspended/Completed/Abandoned，留空=全部",
-                      Required = McpRequired.False)] string status = null)
+        [McpTool(Name = "list_storyline",
+                 Description = "列出当前所有剧情线")]
+        public string ListWorkspaces(string status = null)
         {
             try
             {
@@ -179,12 +171,12 @@ namespace NPCLife.Workspace
         }
 
         /// <summary>
-        /// 获取单个工作空间的导演视图（含信号、统计，不含叙事内容）。
+        /// 获取单个剧情线的导演视图（含信号、统计，不含叙事内容）。
         /// </summary>
-        [McpTool(Name = "get_workspace",
-                 Description = "获取指定工作空间的导演视图：含角色、标签、信号、轮次统计，不含叙事台词内容。")]
+        [McpTool(Name = "get_storyline",
+                 Description = "获取指定剧情线的导演视图")]
         public string GetWorkspace(
-            [McpParam(Description = "工作空间唯一 ID")] string workspaceId)
+            [McpParam(Description = "剧情线ID")] string workspaceId)
         {
             try
             {
@@ -208,12 +200,12 @@ namespace NPCLife.Workspace
         // ================================================================
 
         /// <summary>
-        /// 挂起工作空间。仅 Director 可调用（入口层面由 Skill 归属保证）。
+        /// 挂起剧情线。仅 Director 可调用（入口层面由 Skill 归属保证）。
         /// </summary>
         [McpTool(Name = "suspend_workspace",
-                 Description = "挂起指定工作空间，保留数据但停止回合推送。")]
+                 Description = "挂起指定剧情线，保留数据但停止回合推送。")]
         public string SuspendWorkspace(
-            [McpParam(Description = "工作空间 ID")] string workspaceId)
+            [McpParam(Description = "剧情线 ID")] string workspaceId)
         {
             try
             {
@@ -232,12 +224,12 @@ namespace NPCLife.Workspace
         }
 
         /// <summary>
-        /// 恢复已挂起的工作空间。仅 Director 可调用。
+        /// 恢复已挂起的剧情线。仅 Director 可调用。
         /// </summary>
         [McpTool(Name = "resume_workspace",
-                 Description = "恢复已挂起的工作空间，重新开始接受回合推送。")]
+                 Description = "恢复已挂起的剧情线，重新开始接受回合推送。")]
         public string ResumeWorkspace(
-            [McpParam(Description = "工作空间 ID")] string workspaceId)
+            [McpParam(Description = "剧情线 ID")] string workspaceId)
         {
             try
             {
@@ -256,12 +248,12 @@ namespace NPCLife.Workspace
         }
 
         /// <summary>
-        /// 关闭工作空间（完成或废弃）。仅 Director 可调用。
+        /// 关闭剧情线（完成或废弃）。仅 Director 可调用。
         /// </summary>
         [McpTool(Name = "close_workspace",
-                 Description = "关闭工作空间，标记为 Completed 或 Abandoned。")]
+                 Description = "关闭剧情线，标记为 Completed 或 Abandoned。")]
         public string CloseWorkspace(
-            [McpParam(Description = "工作空间 ID")] string workspaceId,
+            [McpParam(Description = "剧情线 ID")] string workspaceId,
             [McpParam(Description = "结束类型：Completed 或 Abandoned")] string outcomeType,
             [McpParam(Description = "结束原因描述",
                       Required = McpRequired.False)] string reason = null)
@@ -298,13 +290,13 @@ namespace NPCLife.Workspace
         // ================================================================
 
         /// <summary>
-        /// 从现有工作空间分叉出新空间。仅 Director 可调用，内部由 WorkspaceManager 校验。
+        /// 从现有剧情线分叉出新空间。仅 Director 可调用，内部由 WorkspaceManager 校验。
         /// </summary>
-        [McpTool(Name = "branch_workspace",
-                 Description = "从父工作空间分叉创建新的子工作空间。拷贝父空间的轮次历史，追加一条 Branch 轮。")]
+        [McpTool(Name = "branch_storyline",
+                 Description = "从父剧情线分叉创建新的子剧情线。拷贝父空间的轮次历史，追加一条 Branch 轮。")]
         public string BranchWorkspace(
-            [McpParam(Description = "父工作空间 ID")] string parentWorkspaceId,
-            [McpParam(Description = "新工作空间标签")] string label,
+            [McpParam(Description = "父剧情线 ID")] string parentWorkspaceId,
+            [McpParam(Description = "新剧情线标签")] string label,
             [McpParam(Description = "分支前情提要：编剧对为什么要开分支以及新线当前状态的总结。")]
             string branchRecap)
         {
@@ -324,14 +316,14 @@ namespace NPCLife.Workspace
         }
 
         /// <summary>
-        /// 合并两个工作空间。仅 Director 可调用，内部由 WorkspaceManager 校验。
+        /// 合并两个剧情线。仅 Director 可调用，内部由 storylineManager 校验。
         /// </summary>
-        [McpTool(Name = "merge_workspaces",
-                 Description = "将源空间的轮次合并到目标空间，然后废弃源空间。按 Seq 去重，追加一条 Merge 轮。")]
+        [McpTool(Name = "merge_storylines",
+                 Description = "合并剧情线")]
         public string MergeWorkspaces(
-            [McpParam(Description = "源工作空间 ID（将被合并并废弃）")] string sourceWorkspaceId,
-            [McpParam(Description = "目标工作空间 ID（接收数据）")] string targetWorkspaceId,
-            [McpParam(Description = "合并前情提要：编剧对两条线合并后的叙事状态总结。")]
+            [McpParam(Description = "源剧情线 ID（将被合并并废弃）")] string sourceWorkspaceId,
+            [McpParam(Description = "目标剧情线 ID（接收数据）")] string targetWorkspaceId,
+            [McpParam(Description = "合并前情提要：两条线合并后的叙事状态总结。")]
             string mergeRecap)
         {
             try
@@ -347,76 +339,6 @@ namespace NPCLife.Workspace
             {
                 _logger.Warning($"[NPCLife.DirectionMcp] merge_workspaces failed: {e.Message}");
                 return "{}";
-            }
-        }
-
-        // ================================================================
-        // 事件路由（通用：源工作空间 → 目标工作空间）
-        // ================================================================
-
-        /// <summary>
-        /// 将事件从源工作空间推送到目标工作空间。可附加留言。
-        /// </summary>
-        [McpTool(Name = "route_events",
-                 Description = "将事件从源工作空间的事件池推送到目标工作空间。可附加留言、聚焦角色和知识索引标签。源和目标都必须是已存在的工作空间 ID。")]
-        public string RouteEvents(
-            [McpParam(Description = "源工作空间 ID（事件从这里取）")] string sourceWorkspaceId,
-            [McpParam(Description = "目标工作空间 ID（事件推送到这里）")] string targetWorkspaceId,
-            [McpParam(Description = "要路由的事件 ID，多个用逗号分隔")] string eventIds,
-            [McpParam(Description = "可选留言：附带给目标工作空间的备注",
-                      Required = McpRequired.False)] string message = null,
-            [McpParam(Description = "可选聚焦角色 ThingID，逗号分隔。导演指定本轮叙事应重点关注的角色，编剧激活时可见。每次推送覆盖更新。",
-                      Required = McpRequired.False)] string focusCharacterIds = null,
-            [McpParam(Description = "知识库索引标签，逗号分隔。如 '心灵感应,殖民地历史'。目标工作空间的编剧激活时可在事件 payload 中看到这些标签，用于关联知识库词条。",
-                      Required = McpRequired.False)] string knowledgeTags = null)
-        {
-            try
-            {
-                var manager = _getWorkspaceManager();
-                if (manager == null)
-                    return "{\"success\":false,\"error\":\"WorkspaceManager unavailable\"}";
-        
-                var ids = ParseStringList(eventIds);
-                if (ids.Count == 0)
-                    return "{\"success\":false,\"error\":\"no eventIds provided\"}";
-        
-                var sourceWs = manager.Get(sourceWorkspaceId);
-                if (sourceWs == null)
-                    return "{\"success\":false,\"error\":\"source workspace not found\"}";
-        
-                var focusList = ParseStringList(focusCharacterIds);
-        
-                var events = new List<IGameEvent>();
-                foreach (var id in ids)
-                {
-                    var evt = sourceWs.EventPool?.GetById(id);
-                    if (evt == null) continue;
-
-                    // 导演可为此批次事件标注知识索引标签，编剧激活时自动可见
-                    if (!string.IsNullOrEmpty(knowledgeTags) && evt.Payload != null)
-                        evt.Payload["knowledge_tags"] = knowledgeTags;
-
-                    events.Add(evt);
-                }
-        
-                int routed = 0;
-                if (events.Count > 0 && manager.RouteEvents(targetWorkspaceId, events, focusList.Count > 0 ? focusList : null))
-                    routed = events.Count;
-
-                var w = new JsonWriter(128);
-                w.Prop("success", routed > 0);
-                w.Prop("routed", routed);
-                w.Prop("total", ids.Count);
-                if (!string.IsNullOrEmpty(message))
-                    w.Prop("message", message);
-                if (routed < ids.Count)
-                    w.Prop("warning", $"{ids.Count - routed} event(s) not found or target workspace inactive");
-                return w.Close();
-            }
-            catch (Exception e)
-            {
-                _logger.Warning($"[NPCLife.DirectionMcp] route_events failed: {e.Message}");
-                return "{\"success\":false,\"error\":" + JsonHelper.Quote(e.Message) + "}";
             }
         }
 
@@ -472,7 +394,7 @@ namespace NPCLife.Workspace
         }
 
         /// <summary>
-        /// 单个工作空间的导演摘要（轻量）。
+        /// 单个剧情线的导演摘要（轻量）。
         /// </summary>
         private string SerializeDirectorSummary(IWorkspace ws)
         {

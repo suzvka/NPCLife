@@ -25,7 +25,6 @@ namespace NPCLife.Tests.Framework
                 EventID = "test_001",
                 DefName = "TestEvent",
                 Importance = 3f,
-                MapHint = "Map:123",
                 Actors = new List<EventActorRef>
                 {
                     EventActorRef.Pawn("pawn_1", "Alice", "Initiator")
@@ -437,7 +436,6 @@ namespace NPCLife.Tests.Framework
             public string DefName { get; set; }
             public float Importance { get; set; } = 1f;
             public IReadOnlyList<EventActorRef> Actors { get; set; } = new List<EventActorRef>();
-            public string MapHint { get; set; } = "";
             public IDictionary<string, string> Payload { get; set; } = new Dictionary<string, string>();
         }
     }

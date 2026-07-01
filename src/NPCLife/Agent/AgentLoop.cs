@@ -211,6 +211,20 @@ namespace NPCLife.Agent
                 };
                 AgentPipeline.RunBeforePrompt(promptCtx);
 
+                if (_messages == null || _messages.Count == 0)
+                {
+                    // 首次激活：完整上下文 + 伪造对话前缀
+                    // 注入的上下文被伪装为 LLM 已审阅并确认的内容，
+                    // 使后续激活时 LLM 跟随自身的“已获取”模式，避免重复查询。
+                    _messages = new List<LlmMessage>
+                    {
+                        LlmMessage.System(_systemPrompt),
+                        LlmMessage.User(promptCtx.UserMessage),
+                        LlmMessage.Assistant("好的，我已收到基本写作素材，接下来按照推荐步骤执行。我会先阅读已有信息，若信息完整即可直接进入创作阶段。"),
+                        LlmMessage.User("请继续")
+                    };
+                }
+
                 _messages = new List<LlmMessage>
                 {
                     LlmMessage.System(_systemPrompt),

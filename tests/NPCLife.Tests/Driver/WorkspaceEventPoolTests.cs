@@ -39,7 +39,6 @@ namespace NPCLife.Tests.Driver
                 DefName = "TestEvent",
                 Importance = importance,
                 Actors = actors ?? new List<EventActorRef>(),
-                MapHint = "",
                 Payload = new Dictionary<string, string> { { "id", id } }
             };
         }
@@ -340,12 +339,12 @@ namespace NPCLife.Tests.Driver
             var evt1 = new TestGameEvent
             {
                 EventID = "dup1", DefName = "Raid", Importance = 3f,
-                Actors = new List<EventActorRef>(), MapHint = "", Payload = new Dictionary<string, string> { { "faction", "pirates" } }
+                Actors = new List<EventActorRef>(), Payload = new Dictionary<string, string> { { "faction", "pirates" } }
             };
             var evt2 = new TestGameEvent
             {
                 EventID = "dup2", DefName = "Raid", Importance = 3f,
-                Actors = new List<EventActorRef>(), MapHint = "", Payload = new Dictionary<string, string> { { "faction", "pirates" } }
+                Actors = new List<EventActorRef>(), Payload = new Dictionary<string, string> { { "faction", "pirates" } }
             };
 
             pool.Append(evt1);
@@ -365,12 +364,12 @@ namespace NPCLife.Tests.Driver
             var evt1 = new TestGameEvent
             {
                 EventID = "e1", DefName = "Raid", Importance = 3f,
-                Actors = new List<EventActorRef>(), MapHint = "", Payload = new Dictionary<string, string>()
+                Actors = new List<EventActorRef>(), Payload = new Dictionary<string, string>()
             };
             var evt2 = new TestGameEvent
             {
                 EventID = "e2", DefName = "Trade", Importance = 2f,
-                Actors = new List<EventActorRef>(), MapHint = "", Payload = new Dictionary<string, string>()
+                Actors = new List<EventActorRef>(), Payload = new Dictionary<string, string>()
             };
 
             pool.Append(evt1);
@@ -388,7 +387,7 @@ namespace NPCLife.Tests.Driver
             var evt = new TestGameEvent
             {
                 EventID = "e1", DefName = "Raid", Importance = 3f,
-                Actors = new List<EventActorRef>(), MapHint = "", Payload = new Dictionary<string, string>()
+                Actors = new List<EventActorRef>(), Payload = new Dictionary<string, string>()
             };
 
             pool.Append(evt);
@@ -412,7 +411,6 @@ namespace NPCLife.Tests.Driver
             public string DefName { get; set; }
             public float Importance { get; set; }
             public IReadOnlyList<EventActorRef> Actors { get; set; }
-            public string MapHint { get; set; }
             public IDictionary<string, string> Payload { get; set; }
         }
     }
