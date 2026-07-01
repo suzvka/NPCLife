@@ -38,13 +38,17 @@ namespace NPCLife.Driver
         /// <summary>即兴编剧定时器脉冲间隔（抽象积分）。0 表示禁用。</summary>
         public int ImproviserTimerInterval = 0;
 
+        /// <summary>剧情编剧定时器脉冲间隔（抽象积分）。0 表示禁用。
+        /// 兜底定时器：事件池中有 pending 事件但未达阈值时，定时器到期强制触发。</summary>
+        public int ScreenwriterTimerInterval = 0;
+
         // ---- 通用配置 ----
 
         /// <summary>历史环形缓冲区容量。超出时裁剪最旧事件。</summary>
         public int RecentHistoryCapacity = 200;
 
         /// <summary>Agent 多轮工具调用最大轮数（防死循环）。</summary>
-        public int MaxAgentRounds = 10;
+        public int MaxAgentRounds = 100;
 
         // ---- 查询方法 ----
 
@@ -97,8 +101,10 @@ namespace NPCLife.Driver
                     return DirectorTimerInterval;
                 case Workspace.WorkspaceRole.Improviser:
                     return ImproviserTimerInterval;
+                case Workspace.WorkspaceRole.Screenwriter:
+                    return ScreenwriterTimerInterval;
                 default:
-                    return 0; // Screenwriter 不支持定时器
+                    return 0;
             }
         }
 

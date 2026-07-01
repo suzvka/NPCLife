@@ -223,7 +223,11 @@ namespace NPCLife.Infrastructure.Llm
 
             // tools
             if (!string.IsNullOrEmpty(req.ToolsJson))
+            {
                 w.PropRaw("tools", req.ToolsJson);
+                // 允许 LLM 在一次响应中发起多个并行工具调用
+                w.Prop("parallel_tool_calls", req.ParallelToolCalls);
+            }
 
             return w.Close();
         }

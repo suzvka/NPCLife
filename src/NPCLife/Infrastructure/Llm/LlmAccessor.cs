@@ -304,7 +304,8 @@ namespace NPCLife.Infrastructure.Llm
                     ? new List<LlmMessage>(original.Messages)
                     : new List<LlmMessage>(),
                 ToolsJson = original.ToolsJson,
-                Temperature = original.Temperature
+                Temperature = original.Temperature,
+                ParallelToolCalls = original.ParallelToolCalls
             };
         }
 

@@ -57,5 +57,22 @@ namespace NPCLife.Core
 
         /// <summary>当池状态变化且满足任一阈值时触发。订阅者（AgentLoop）被动激活。</summary>
         event Action OnThresholdReached;
+
+        /// <summary>
+        /// 清空事件缓存。Agent 运行结束时调用，所有已处理/未处理的事件一律清除。
+        /// </summary>
+        void ClearCache();
+
+        /// <summary>
+        /// 从 EventCache 中移除指定事件。用于 Agent 选择性清理已处理事件，保留未处理事件供下一轮复用。
+        /// 同时从 PendingEventIds 中移除（如果存在），并重新计算 pending 重要度。
+        /// </summary>
+        void RemoveEvents(IReadOnlyCollection<string> eventIds);
+
+        /// <summary>
+        /// pending 缓冲区中是否存在 DefName 不等于 <paramref name="excludeDefName"/> 的事件。
+        /// AgentLoop 用此方法过滤 TimerPulse：仅 TimerPulse 时不自动激活，等待真实事件到达后再一并处理。
+        /// </summary>
+        bool HasPendingExcept(string excludeDefName);
     }
 }
