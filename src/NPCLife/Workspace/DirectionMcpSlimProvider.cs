@@ -32,6 +32,7 @@ namespace NPCLife.Workspace
             {
                 McpTool.FromMethod(typeof(DirectionMcpSlimProvider).GetMethod(nameof(CreateWorkspace)), this),
                 McpTool.FromMethod(typeof(DirectionMcpSlimProvider).GetMethod(nameof(CreateEvent)), this),
+                McpTool.FromMethod(typeof(DirectionMcpSlimProvider).GetMethod(nameof(RouteEvents)), this),
                 McpTool.FromMethod(typeof(DirectionMcpSlimProvider).GetMethod(nameof(BranchWorkspace)), this),
                 McpTool.FromMethod(typeof(DirectionMcpSlimProvider).GetMethod(nameof(FinishSession)), this),
             };
@@ -50,9 +51,9 @@ namespace NPCLife.Workspace
             => _inner.CreateWorkspace(label, tags);
 
         [McpTool(Name = "create_event",
-                 Description = "[评分+5] 在目标剧情线中新建事件卡片")]
+                 Description = "[评分+5] 在目标剧情线中新建事件卡片。按标题匹配目标。")]
         public string CreateEvent(
-            [McpParam(Description = "目标剧情线 ID")] string targetWorkspaceId,
+            [McpParam(Description = "目标剧情线标题")] string targetLabel,
             [McpParam(Description = "事件标题")] string defName,
             [McpParam(Description = "事件内容")] string description,
             [McpParam(Description = "重要度，默认 3.0。越高越容易触发编剧激活。范围建议 1.0-5.0")] double importance = 3.0,
@@ -60,7 +61,7 @@ namespace NPCLife.Workspace
                       Required = McpRequired.False)] string actorIds = null,
             [McpParam(Description = "知识库索引标签，逗号分隔",
                       Required = McpRequired.False)] string knowledgeTags = null)
-            => _inner.CreateEvent(targetWorkspaceId, defName, description, importance, actorIds, knowledgeTags);
+            => _inner.CreateEvent(targetLabel, defName, description, importance, actorIds, knowledgeTags);
 
         [McpTool(Name = "branch_storyline",
                  Description = "[评分+5] 从父剧情线分叉创建新的子剧情线。拷贝父空间的轮次历史。")]
@@ -70,9 +71,25 @@ namespace NPCLife.Workspace
             [McpParam(Description = "分支前情提要")] string branchRecap)
             => _inner.BranchWorkspace(parentWorkspaceId, label, branchRecap);
 
+        [McpTool(Name = "route_events",
+                 Description = "[评分+5] 将事件推送到目标剧情线。按标题匹配目标。")]
+        public string RouteEvents(
+            [McpParam(Description = "目标剧情线标题")] string targetLabel,
+            [McpParam(Description = "要路由的事件 ID，多个用逗号分隔")] string eventIds,
+            [McpParam(Description = "附带给目标剧情线的备注",
+                      Required = McpRequired.False)] string message = null,
+            [McpParam(Description = "聚焦角色 ID，逗号分隔，用于指定该批事件应聚焦的角色",
+                      Required = McpRequired.False)] string focusCharacterIds = null,
+            [McpParam(Description = "知识库索引标签，逗号分隔，用于标记专有名词，避免接收方产生误解",
+                      Required = McpRequired.False)] string knowledgeTags = null)
+            => _inner.RouteEvents(targetLabel, eventIds, message, focusCharacterIds, knowledgeTags);
+
         [McpTool(Name = "finish_session",
                  Description = "[评分+10] 结束本轮导演工作。")]
-        public string FinishSession()
-            => _inner.FinishSession();
+        public string FinishSession(
+            [McpParam(Description = "要丢弃的事件 ID，多个用逗号分隔。",
+                      Required = McpRequired.False)]
+            string discardedEventIds = null)
+            => _inner.FinishSession(discardedEventIds);
     }
 }

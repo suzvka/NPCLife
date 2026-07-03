@@ -25,8 +25,7 @@ namespace NPCLife.Tests.WorkspaceTests
                 ScreenwriterCountThreshold = 3,
                 ScreenwriterImportanceThreshold = 10f,
                 ImproviserCountThreshold = 3,
-                ImproviserImportanceThreshold = 10f,
-                RecentHistoryCapacity = 20
+                ImproviserImportanceThreshold = 10f
             };
         }
 

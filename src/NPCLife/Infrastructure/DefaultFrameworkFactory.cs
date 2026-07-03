@@ -1,3 +1,4 @@
+using NPCLife.Agent;
 using NPCLife.Core;
 using NPCLife.Driver;
 using NPCLife.Framework;
@@ -52,6 +53,11 @@ namespace NPCLife.Infrastructure
         public IAgentInterceptor CreateMetricsInterceptor(AgentRole role)
         {
             return new MetricsInterceptor(role);
+        }
+
+        public IAgentOrchestrator CreateAgentOrchestrator(IWorkspaceManager manager)
+        {
+            return new AgentOrchestrator(manager);
         }
 
         // ================================================================

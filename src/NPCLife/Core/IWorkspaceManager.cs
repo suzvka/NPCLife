@@ -27,8 +27,22 @@ namespace NPCLife.Core
         /// <summary>获取所有 Active 状态的工作空间。</summary>
         IReadOnlyList<IWorkspace> GetActive();
 
+        /// <summary>
+        /// 获取叙事剧情线工作空间。排除导演（Director）自身工作空间，
+        /// 仅返回编剧（Screenwriter）和即兴编剧（Improviser）创建的剧情线。
+        /// 框架封装角色可见性规则，适配层无需手动按 CreatedByRole 过滤。
+        /// </summary>
+        /// <param name="status">可选状态过滤，默认不限制。</param>
+        IReadOnlyList<IWorkspace> GetStorylines(WorkspaceStatus? status = null);
+
         /// <summary>更新工作空间状态。</summary>
         bool UpdateStatus(string id, WorkspaceStatus newStatus, string outcome = null);
+
+        /// <summary>设置工作空间标题。由适配层在初始化时调用。</summary>
+        void SetLabel(string id, string label);
+
+        /// <summary>设置工作空间的导演留言（简介）。由适配层在初始化时调用。</summary>
+        void SetDirectorMessage(string id, string message);
 
         // --- 结构操作（2 方法） ---
 

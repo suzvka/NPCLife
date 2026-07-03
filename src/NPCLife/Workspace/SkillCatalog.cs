@@ -37,11 +37,11 @@ namespace NPCLife.Workspace
         public static readonly Entry[] AllSkills =
         {
             new("colony_overview", "游戏全局状态",
-                "局势概览、近期事件、活跃目标、资源库存",
+                "获取全局叙事事实",
                 WorkspaceRole.Director),
 
             new("character_query", "角色与环境查询",
-                "获取角色人物卡、按条件筛选殖民者、列出全部角色、查询角色当前所处环境（室内外、温光、天气、房间）",
+                "获取局部叙事事实",
                 WorkspaceRole.Director, WorkspaceRole.Screenwriter, WorkspaceRole.Improviser),
 
             new("relationship_query", "关系网络",

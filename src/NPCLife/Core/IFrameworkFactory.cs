@@ -40,6 +40,12 @@ namespace NPCLife.Core
         /// <param name="role">所属 Agent 角色。</param>
         IAgentInterceptor CreateMetricsInterceptor(AgentRole role);
 
+        /// <summary>
+        /// 创建 Agent 编排器。管理所有 Agent 的创建、缓存、生命周期。
+        /// 游戏侧通过 AgentOrchestrator.Register 注入 Agent 工厂委托。
+        /// </summary>
+        IAgentOrchestrator CreateAgentOrchestrator(IWorkspaceManager manager);
+
         // ================================================================
         // 基础设施服务（单例，委托到静态类）
         // ================================================================

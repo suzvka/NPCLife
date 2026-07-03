@@ -113,7 +113,7 @@ namespace NPCLife.Workspace
             var ws = new WorkspaceState
             {
                 Id = GenerateWorkspaceId(createdByRole),
-                Label = label ?? "Unnamed",
+                Label = !string.IsNullOrEmpty(label) ? label : createdByRole.ToString(),
                 Status = WorkspaceStatus.Active,
                 CreatedByRole = createdByRole,
                 ParentId = null,
@@ -179,6 +179,20 @@ namespace NPCLife.Workspace
             return List(WorkspaceStatus.Active);
         }
 
+        public IReadOnlyList<IWorkspace> GetStorylines(WorkspaceStatus? status = null)
+        {
+            _rwLock.EnterReadLock();
+            try
+            {
+                var query = _workspaces.AsEnumerable()
+                    .Where(w => w.CreatedByRole != WorkspaceRole.Director);
+                if (status.HasValue)
+                    query = query.Where(w => w.Status == status.Value);
+                return query.Cast<IWorkspace>().ToList();
+            }
+            finally { _rwLock.ExitReadLock(); }
+        }
+
         public bool UpdateStatus(string id, WorkspaceStatus newStatus, string outcome = null)
         {
             var impl = GetImpl(id);
@@ -201,6 +215,23 @@ namespace NPCLife.Workspace
                 PublishUpdated(id);
 
             return true;
+        }
+
+        public void SetLabel(string id, string label)
+        {
+            var impl = GetImpl(id);
+            if (impl == null || string.IsNullOrEmpty(label)) return;
+            impl.State.Label = label;
+            PublishUpdated(id);
+            _logger.Message($"[NPCLife.Workspace] Workspace '{id}' label set to '{label}'.");
+        }
+
+        public void SetDirectorMessage(string id, string message)
+        {
+            var impl = GetImpl(id);
+            if (impl == null) return;
+            impl.State.DirectorMessage = message;
+            PublishUpdated(id);
         }
 
         // ================================================================

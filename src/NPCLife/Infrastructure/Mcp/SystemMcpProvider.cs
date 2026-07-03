@@ -34,7 +34,8 @@ namespace NPCLife.Infrastructure.Mcp
         public IReadOnlyList<McpTool> GetTools()
         {
             return McpTool.ScanAllFrom(this)
-                .Where(t => t.Definition.Name != "list_skills")
+                .Where(t => t.Definition.Name != "list_skills"
+                         && t.Definition.Name != "route_events")
                 .ToList();
         }
 
@@ -42,7 +43,7 @@ namespace NPCLife.Infrastructure.Mcp
         /// 列出当前工作空间的所有可用 Skill 及其激活状态。
         /// </summary>
         [McpTool(Name = "list_skills",
-                 Description = "[评分-3] 列出当前工作空间的所有可用技能分组及激活状态。激活后才能使用对应技能的工具。")]
+                 Description = "[-20] 列出当前工作空间的所有可用技能分组及激活状态。激活后才能使用对应技能的工具。")]
         public string ListSkills()
         {
             try
@@ -70,7 +71,7 @@ namespace NPCLife.Infrastructure.Mcp
         /// 为当前工作空间激活一个 Skill，使其工具可用。
         /// </summary>
         [McpTool(Name = "activate_skill",
-                 Description = "[评分-3] 为当前工作空间激活一个技能分组，使其中的工具在当前对话中可用。可多次调用叠加激活。返回新激活的工具定义。")]
+                 Description = "[-20] 为当前工作空间激活一个技能分组，使其中的工具在当前对话中可用。可多次调用叠加激活。返回新激活的工具定义。")]
         public string ActivateSkill(
             [McpParam(Description = "要激活的技能 ID")]
             string skillId)
@@ -99,7 +100,7 @@ namespace NPCLife.Infrastructure.Mcp
         /// 为当前工作空间反激活一个 Skill。
         /// </summary>
         [McpTool(Name = "deactivate_skill",
-                 Description = "[评分-3] 为当前工作空间反激活一个技能分组。system 技能不可反激活。已反激活的技能的工具将不再可用。")]
+                 Description = "[-3] 为当前工作空间反激活一个技能分组。system 技能不可反激活。已反激活的技能的工具将不再可用。")]
         public string DeactivateSkill(
             [McpParam(Description = "要反激活的技能 ID")]
             string skillId)
@@ -165,7 +166,7 @@ namespace NPCLife.Infrastructure.Mcp
         /// 默认从当前剧情线取事件（源 ID 留空即用当前上下文）。
         /// </summary>
         [McpTool(Name = "route_events",
-                 Description = "[评分+5] 将事件推送到目标剧情线。默认从当前剧情线取事件。可附加留言、聚焦角色和知识索引标签。")]
+                 Description = "[+5] 将事件推送到目标剧情线。默认从当前剧情线取事件。可附加留言、聚焦角色和知识索引标签。")]
         public string RouteEvents(
             [McpParam(Description = "目标剧情线 ID")]
             string targetWorkspaceId,

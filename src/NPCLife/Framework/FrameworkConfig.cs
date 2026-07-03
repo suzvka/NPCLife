@@ -59,7 +59,6 @@ namespace NPCLife.Framework
             {
                 if (Driver.DirectorCountThreshold < 1) errors.Add("Driver.DirectorCountThreshold must be >= 1.");
                 if (Driver.DirectorImportanceThreshold < 1f) errors.Add("Driver.DirectorImportanceThreshold must be >= 1.");
-                if (Driver.RecentHistoryCapacity < 10) errors.Add("Driver.RecentHistoryCapacity must be >= 10.");
                 if (Driver.MaxAgentRounds < 1 || Driver.MaxAgentRounds > 100)
                     errors.Add("Driver.MaxAgentRounds must be between 1 and 100.");
             }
@@ -89,7 +88,6 @@ namespace NPCLife.Framework
             dw.Prop("screenwriterImportanceThreshold", d.ScreenwriterImportanceThreshold, "F2");
             dw.Prop("directorTimerInterval", d.DirectorTimerInterval);
             dw.Prop("freelancerTimerInterval", d.ImproviserTimerInterval);
-            dw.Prop("recentHistoryCapacity", d.RecentHistoryCapacity);
             dw.Prop("maxAgentRounds", d.MaxAgentRounds);
             w.PropRaw("driver", dw.Close());
 
@@ -136,8 +134,6 @@ namespace NPCLife.Framework
                         dc.DirectorTimerInterval = dtiv;
                     if (dd.TryGetValue("freelancerTimerInterval", out string fti) && int.TryParse(fti, out int ftiv))
                         dc.ImproviserTimerInterval = ftiv;
-                    if (dd.TryGetValue("recentHistoryCapacity", out string rhc) && int.TryParse(rhc, out int rhcv))
-                        dc.RecentHistoryCapacity = rhcv;
                     if (dd.TryGetValue("maxAgentRounds", out string mar) && int.TryParse(mar, out int marv))
                         dc.MaxAgentRounds = marv;
                     config.Driver = dc;

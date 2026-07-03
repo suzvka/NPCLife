@@ -34,6 +34,7 @@ namespace NPCLife.Workspace
             {
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(CreateWorkspace)), this),
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(CreateEvent)), this),
+                McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(RouteEvents)), this),
                 // list_storyline 和 get_storyline 已移至 Director 上下文注入
                 // （BuildDirectorWorkspaceSummary），不再作为 MCP 工具提供
                 //McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(ListWorkspaces)), this),
@@ -55,9 +56,30 @@ namespace NPCLife.Workspace
         /// 通知系统本轮导演工作已完成。所有事件已路由完毕即可调用，结束当前 Agent 循环。
         /// </summary>
         [McpTool(Name = "finish_session",
-                 Description = "[评分+10] 结束本轮导演工作。所有事件已处理完毕时调用。")]
-        public string FinishSession()
+                 Description = "[+20] 结束本轮导演工作。所有事件已处理完毕时调用。")]
+        public string FinishSession(
+            [McpParam(Description = "要丢弃的事件 ID，多个用逗号分隔。已处理完毕不再需要的事件应在此列出，系统将清除这些事件释放资源。",
+                      Required = McpRequired.False)]
+            string discardedEventIds = null)
         {
+            // 丢弃指定事件
+            if (!string.IsNullOrEmpty(discardedEventIds))
+            {
+                try
+                {
+                    var workspaceId = McpSkillRegistry.CurrentWorkspaceId.Value;
+                    if (!string.IsNullOrEmpty(workspaceId))
+                    {
+                        var manager = _getWorkspaceManager();
+                        var ws = manager?.Get(workspaceId);
+                        var ids = ParseStringList(discardedEventIds);
+                        if (ws?.EventPool != null && ids.Count > 0)
+                            ws.EventPool.RemoveEvents(ids);
+                    }
+                }
+                catch { }
+            }
+
             McpSkillRegistry.RoundFinished.Value = true;
             return "{\"ok\":true}";
         }
@@ -69,7 +91,7 @@ namespace NPCLife.Workspace
         /// 创建新的剧情线剧情线。创建者角色固定为 Director。
         /// </summary>
         [McpTool(Name = "create_storyline",
-                 Description = "[评分+5] 创建新的剧情线，返回剧情线完整信息。")]
+                 Description = "[+5] 创建新的剧情线")]
         public string CreateWorkspace(
             [McpParam(Description = "剧情线标题")] string label,
             [McpParam(Description = "剧情分类标签，有多个时用逗号分隔",
@@ -101,9 +123,9 @@ namespace NPCLife.Workspace
         /// 创建的事件 DefName 建议以 DirectorBeat_ 为前缀。
         /// </summary>
         [McpTool(Name = "create_event",
-                 Description = "[评分+5] 在指定剧情线中新建事件卡片")]
+                 Description = "[+1] 在指定剧情线中新建事件卡片。按标题匹配目标。")]
         public string CreateEvent(
-            [McpParam(Description = "目标剧情线 ID")] string targetWorkspaceId,
+            [McpParam(Description = "目标剧情线标题")] string targetLabel,
             [McpParam(Description = "事件标题")] string defName,
             [McpParam(Description = "事件内容")] string description,
             [McpParam(Description = "重要度，默认 3.0。越高越容易触发编剧激活。范围建议 1.0-5.0")] double importance = 3.0,
@@ -117,12 +139,12 @@ namespace NPCLife.Workspace
                 var manager = _getWorkspaceManager();
                 if (manager == null) return "{\"success\":false,\"error\":\"WorkspaceManager unavailable\"}";
 
-                var ws = manager.Get(targetWorkspaceId);
+                var ws = FindWorkspaceByLabel(manager, targetLabel);
                 if (ws == null)
-                    return "{\"success\":false,\"error\":\"target workspace not found\"}";
+                    return "{\"success\":false,\"error\":" + JsonHelper.Quote("target storyline not found by label: " + targetLabel) + "}";
 
                 if (ws.Status != WorkspaceStatus.Active)
-                    return "{\"success\":false,\"error\":\"target workspace is not Active\"}";
+                    return "{\"success\":false,\"error\":\"target storyline is not Active\"}";
 
                 var eventId = "dir_" + Guid.NewGuid().ToString("N").Substring(0, 8);
 
@@ -148,6 +170,8 @@ namespace NPCLife.Workspace
                 w.Prop("success", true);
                 w.Prop("eventId", eventId);
                 w.Prop("defName", defName);
+                w.Prop("targetLabel", targetLabel);
+                w.Prop("targetId", ws.Id);
                 w.Prop("importance", eventCard.Importance, "F2");
                 return w.Close();
             }
@@ -159,14 +183,89 @@ namespace NPCLife.Workspace
         }
 
         // ================================================================
+        // 事件路由（导演专属：按标题索引目标剧情线）
+        // ================================================================
+
+        /// <summary>
+        /// 将事件从导演工作空间推送到目标剧情线。按标题匹配目标剧情线。
+        /// 导演可在此实现限流、审核等策略（区别于编剧的 route_events）。
+        /// </summary>
+        [McpTool(Name = "route_events",
+                 Description = "[+5] 将事件推送到目标剧情线。按标题匹配目标。")]
+        public string RouteEvents(
+            [McpParam(Description = "目标剧情线标题")] string targetLabel,
+            [McpParam(Description = "要路由的事件 ID，多个用逗号分隔")] string eventIds,
+            [McpParam(Description = "附带给目标剧情线的备注",
+                      Required = McpRequired.False)] string message = null,
+            [McpParam(Description = "聚焦角色 ID，逗号分隔，用于指定该批事件应聚焦的角色",
+                      Required = McpRequired.False)] string focusCharacterIds = null,
+            [McpParam(Description = "知识库索引标签，逗号分隔，用于标记专有名词，避免接收方产生误解",
+                      Required = McpRequired.False)] string knowledgeTags = null)
+        {
+            try
+            {
+                var manager = _getWorkspaceManager();
+                if (manager == null)
+                    return "{\"success\":false,\"error\":\"WorkspaceManager unavailable\"}";
+
+                var ids = ParseStringList(eventIds);
+                if (ids.Count == 0)
+                    return "{\"success\":false,\"error\":\"no eventIds provided\"}";
+
+                var targetWs = FindWorkspaceByLabel(manager, targetLabel);
+                if (targetWs == null)
+                    return "{\"success\":false,\"error\":" + JsonHelper.Quote("target storyline not found by label: " + targetLabel) + "}";
+
+                var sourceWorkspaceId = McpSkillRegistry.CurrentWorkspaceId.Value;
+                if (string.IsNullOrEmpty(sourceWorkspaceId))
+                    return "{\"success\":false,\"error\":\"no source workspace context\"}";
+
+                var sourceWs = manager.Get(sourceWorkspaceId);
+                if (sourceWs == null)
+                    return "{\"success\":false,\"error\":\"source workspace not found\"}";
+
+                var focusList = ParseStringList(focusCharacterIds);
+
+                var events = new List<IGameEvent>();
+                foreach (var id in ids)
+                {
+                    var evt = sourceWs.EventPool?.GetById(id);
+                    if (evt == null) continue;
+
+                    if (!string.IsNullOrEmpty(knowledgeTags) && evt.Payload != null)
+                        evt.Payload["knowledge_tags"] = knowledgeTags;
+
+                    events.Add(evt);
+                }
+
+                int routed = 0;
+                if (events.Count > 0 && manager.RouteEvents(targetWs.Id, events, focusList.Count > 0 ? focusList : null))
+                    routed = events.Count;
+
+                var w = new JsonWriter(128);
+                w.Prop("success", routed > 0);
+                w.Prop("routed", routed);
+                w.Prop("total", ids.Count);
+                w.Prop("targetLabel", targetLabel);
+                w.Prop("targetId", targetWs.Id);
+                if (routed < ids.Count)
+                    w.Prop("warning", $"{ids.Count - routed} event(s) not found or target storyline inactive");
+                return w.Close();
+            }
+            catch (Exception e)
+            {
+                _logger.Warning($"[NPCLife.DirectionMcp] route_events failed: {e.Message}");
+                return "{\"success\":false,\"error\":" + JsonHelper.Quote(e.Message) + "}";
+            }
+        }
+
+        // ================================================================
         // 查询
         // ================================================================
 
         /// <summary>
         /// 列出剧情线摘要（导演视图：含信号、统计，不含叙事内容）。
         /// </summary>
-        [McpTool(Name = "list_storyline",
-                 Description = "列出当前所有剧情线")]
         public string ListWorkspaces(string status = null)
         {
             try
@@ -191,8 +290,6 @@ namespace NPCLife.Workspace
         /// <summary>
         /// 获取单个剧情线的导演视图（含信号、统计，不含叙事内容）。
         /// </summary>
-        [McpTool(Name = "get_storyline",
-                 Description = "获取指定剧情线的导演视图")]
         public string GetWorkspace(
             [McpParam(Description = "剧情线ID")] string workspaceId)
         {
@@ -220,8 +317,6 @@ namespace NPCLife.Workspace
         /// <summary>
         /// 挂起剧情线。仅 Director 可调用（入口层面由 Skill 归属保证）。
         /// </summary>
-        [McpTool(Name = "suspend_workspace",
-                 Description = "挂起指定剧情线，保留数据但停止回合推送。")]
         public string SuspendWorkspace(
             [McpParam(Description = "剧情线 ID")] string workspaceId)
         {
@@ -244,8 +339,6 @@ namespace NPCLife.Workspace
         /// <summary>
         /// 恢复已挂起的剧情线。仅 Director 可调用。
         /// </summary>
-        [McpTool(Name = "resume_workspace",
-                 Description = "恢复已挂起的剧情线，重新开始接受回合推送。")]
         public string ResumeWorkspace(
             [McpParam(Description = "剧情线 ID")] string workspaceId)
         {
@@ -269,7 +362,7 @@ namespace NPCLife.Workspace
         /// 关闭剧情线（完成或废弃）。仅 Director 可调用。
         /// </summary>
         [McpTool(Name = "close_workspace",
-                 Description = "[评分+5] 关闭剧情线，标记为 Completed 或 Abandoned。")]
+                 Description = "[+5] 关闭剧情线，标记为 Completed 或 Abandoned。")]
         public string CloseWorkspace(
             [McpParam(Description = "剧情线 ID")] string workspaceId,
             [McpParam(Description = "结束类型：Completed 或 Abandoned")] string outcomeType,
@@ -311,7 +404,7 @@ namespace NPCLife.Workspace
         /// 从现有剧情线分叉出新空间。仅 Director 可调用，内部由 WorkspaceManager 校验。
         /// </summary>
         [McpTool(Name = "branch_storyline",
-                 Description = "[评分+5] 从父剧情线分叉创建新的子剧情线。拷贝父空间的轮次历史，追加一条 Branch 轮。")]
+                 Description = "[+5] 从父剧情线分叉创建新的子剧情线。拷贝父空间的轮次历史，追加一条 Branch 轮。")]
         public string BranchWorkspace(
             [McpParam(Description = "父剧情线 ID")] string parentWorkspaceId,
             [McpParam(Description = "新剧情线标签")] string label,
@@ -337,7 +430,7 @@ namespace NPCLife.Workspace
         /// 合并两个剧情线。仅 Director 可调用，内部由 storylineManager 校验。
         /// </summary>
         [McpTool(Name = "merge_storylines",
-                 Description = "[评分+5] 合并剧情线")]
+                 Description = "[+5] 合并剧情线")]
         public string MergeWorkspaces(
             [McpParam(Description = "源剧情线 ID（将被合并并废弃）")] string sourceWorkspaceId,
             [McpParam(Description = "目标剧情线 ID（接收数据）")] string targetWorkspaceId,
@@ -439,6 +532,31 @@ namespace NPCLife.Workspace
         // ================================================================
         // 辅助
         // ================================================================
+
+        /// <summary>
+        /// 按标题（Label）从活跃工作空间中查找目标。大小写不敏感。
+        /// 若匹配到多个同标题 workspace，选择最近活跃的并记录警告。
+        /// </summary>
+        private IWorkspace FindWorkspaceByLabel(IWorkspaceManager manager, string label)
+        {
+            if (manager == null || string.IsNullOrEmpty(label)) return null;
+
+            var actives = manager.GetActive();
+            var matches = new List<IWorkspace>();
+            foreach (var ws in actives)
+            {
+                if (string.Equals(ws.Label, label, StringComparison.OrdinalIgnoreCase))
+                    matches.Add(ws);
+            }
+
+            if (matches.Count == 0) return null;
+            if (matches.Count == 1) return matches[0];
+
+            // 多个匹配：选最近活跃的
+            _logger.Warning($"[NPCLife.DirectionMcp] Multiple storylines with label '{label}' found ({matches.Count}). Using most recently active.");
+            matches.Sort((a, b) => string.Compare(b.LastActivityAt, a.LastActivityAt, StringComparison.OrdinalIgnoreCase));
+            return matches[0];
+        }
 
         private List<string> ParseStringList(string input)
         {

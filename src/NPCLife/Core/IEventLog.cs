@@ -59,11 +59,6 @@ namespace NPCLife.Core
         event Action OnThresholdReached;
 
         /// <summary>
-        /// 清空事件缓存。Agent 运行结束时调用，所有已处理/未处理的事件一律清除。
-        /// </summary>
-        void ClearCache();
-
-        /// <summary>
         /// 从 EventCache 中移除指定事件。用于 Agent 选择性清理已处理事件，保留未处理事件供下一轮复用。
         /// 同时从 PendingEventIds 中移除（如果存在），并重新计算 pending 重要度。
         /// </summary>

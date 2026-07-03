@@ -189,11 +189,6 @@ namespace NPCLife.Workspace
             return events;
         }
 
-        public void ClearCache()
-        {
-            _ws.EventCache?.Clear();
-        }
-
         public void RemoveEvents(IReadOnlyCollection<string> eventIds)
         {
             if (eventIds == null || eventIds.Count == 0) return;

@@ -34,6 +34,7 @@ namespace NPCLife.Workspace
             return new McpTool[]
             {
                 McpTool.FromMethod(typeof(WritingMcpProvider).GetMethod(nameof(PushLine)), this),
+                McpTool.FromMethod(typeof(WritingMcpProvider).GetMethod(nameof(RouteEvents)), this),
                 McpTool.FromMethod(typeof(WritingMcpProvider).GetMethod(nameof(FinishRound)), this),
             };
         }
@@ -45,7 +46,7 @@ namespace NPCLife.Workspace
         /// 推送单句台词到当前剧情线。每句立即投递到游戏侧显示。可并行调用多句。
         /// </summary>
         [McpTool(Name = "push_line",
-                 Description = "[评分+3] 写一句台词，建议并发调用，一次性写完整个脚本，以节省token")]
+                 Description = "[dynamic] 写一句台词。其中对话内容建议遇到结束标点符号就断句，以最大化得分。注意：不符合语法或通常文学表述方式的台词将被判定为失败。")]
         public string PushLine(
             [McpParam(Description = "本句台词主体角色(如说话人)的ID")]
             string speakerId,
@@ -53,7 +54,7 @@ namespace NPCLife.Workspace
             string text,
             [McpParam(Description = "本行起始延迟秒数，默认 0。")]
             double delay = 0,
-            [McpParam(Description = "类型：dialogue(角色对话) / narration(旁白/环境描写) / action(动作描写) / pause(纯停顿)，默认 dialogue。")]
+            [McpParam(Description = "类型：[+3,单句过长时-1]dialogue(角色对话) / [+1]narration(旁白/环境描写) / [+1]action(动作描写) / [+1]pause(纯停顿)，默认 dialogue。")]
             string type = "dialogue")
         {
             try
@@ -83,16 +84,104 @@ namespace NPCLife.Workspace
         // ================================================================
 
         /// <summary>
+        /// 将事件从当前编剧工作空间发送给导演。无需指定目标，自动路由到导演工作空间。
+        /// 编剧完成所有台词推送后，可调用此工具将关联事件反馈给导演。
+        /// </summary>
+        [McpTool(Name = "route_events",
+                 Description = "[+5] 将事件发送给导演")]
+        public string RouteEvents(
+            [McpParam(Description = "要发送的事件 ID，多个用逗号分隔")] string eventIds,
+            [McpParam(Description = "附带给导演的备注",
+                      Required = McpRequired.False)] string message = null,
+            [McpParam(Description = "聚焦角色 ID，逗号分隔，用于指定该批事件应聚焦的角色",
+                      Required = McpRequired.False)] string focusCharacterIds = null,
+            [McpParam(Description = "知识库索引标签，逗号分隔，用于标记专有名词，避免接收方产生误解",
+                      Required = McpRequired.False)] string knowledgeTags = null)
+        {
+            try
+            {
+                var manager = _getWorkspaceManager();
+                if (manager == null)
+                    return "{\"success\":false,\"error\":\"WorkspaceManager unavailable\"}";
+
+                var ids = ParseStringList(eventIds);
+                if (ids.Count == 0)
+                    return "{\"success\":false,\"error\":\"no eventIds provided\"}";
+
+                // 找到导演工作空间
+                var actives = manager.GetActive();
+                IWorkspace directorWs = null;
+                foreach (var ws in actives)
+                {
+                    if (ws.CreatedByRole == WorkspaceRole.Director)
+                    {
+                        directorWs = ws;
+                        break;
+                    }
+                }
+                if (directorWs == null)
+                    return "{\"success\":false,\"error\":\"director workspace not found\"}";
+
+                var sourceWorkspaceId = McpSkillRegistry.CurrentWorkspaceId.Value;
+                if (string.IsNullOrEmpty(sourceWorkspaceId))
+                    return "{\"success\":false,\"error\":\"no source workspace context\"}";
+
+                var sourceWs = manager.Get(sourceWorkspaceId);
+                if (sourceWs == null)
+                    return "{\"success\":false,\"error\":\"source workspace not found\"}";
+
+                var focusList = ParseStringList(focusCharacterIds);
+
+                var events = new List<IGameEvent>();
+                foreach (var id in ids)
+                {
+                    var evt = sourceWs.EventPool?.GetById(id);
+                    if (evt == null) continue;
+
+                    if (!string.IsNullOrEmpty(knowledgeTags) && evt.Payload != null)
+                        evt.Payload["knowledge_tags"] = knowledgeTags;
+
+                    events.Add(evt);
+                }
+
+                int routed = 0;
+                if (events.Count > 0 && manager.RouteEvents(directorWs.Id, events, focusList.Count > 0 ? focusList : null))
+                    routed = events.Count;
+
+                var w = new JsonWriter(128);
+                w.Prop("success", routed > 0);
+                w.Prop("routed", routed);
+                w.Prop("total", ids.Count);
+                w.Prop("targetId", directorWs.Id);
+                if (routed < ids.Count)
+                    w.Prop("warning", $"{ids.Count - routed} event(s) not found");
+                return w.Close();
+            }
+            catch (Exception e)
+            {
+                _logger.Warning($"[NPCLife.WritingMcp] route_events failed: {e.Message}");
+                return "{\"success\":false,\"error\":" + JsonHelper.Quote(e.Message) + "}";
+            }
+        }
+
+        // ================================================================
+        // 结束本轮
+        // ================================================================
+
+        /// <summary>
         /// 结束本轮叙事。归档 recap，可选给导演留言。所有台词推送完毕后必须调用。
         /// </summary>
         [McpTool(Name = "finish_round",
-                 Description = "[评分+10] 撰写总结报告，结束本轮工作")]
+                 Description = "[评分+20] 撰写总结报告，结束本轮工作")]
         public string FinishRound(
             [McpParam(Description = "本轮叙事的总结，将作为下一轮叙事的前情提要")]
             string recap,
             [McpParam(Description = "给工作群组的留言，说明剧情线是否可继续、期望接收什么类型的事件等",
                       Required = McpRequired.False)]
-            string directorNote = null)
+            string directorNote = null,
+            [McpParam(Description = "要丢弃的事件 ID，多个用逗号分隔。已处理完毕不再需要的事件应在此列出，系统将清除这些事件释放资源。",
+                      Required = McpRequired.False)]
+            string discardedEventIds = null)
         {
             try
             {
@@ -108,6 +197,14 @@ namespace NPCLife.Workspace
                 bool ok = ws.FinishRound(recap, null, directorNote, null,
                                          ws.CreatedByRole);
                 if (!ok) return "{}";
+
+                // 丢弃指定事件
+                if (!string.IsNullOrEmpty(discardedEventIds))
+                {
+                    var ids = ParseStringList(discardedEventIds);
+                    if (ws.EventPool != null && ids.Count > 0)
+                        ws.EventPool.RemoveEvents(ids);
+                }
 
                 // 返回简略确认 + 标记循环终止
                 McpSkillRegistry.RoundFinished.Value = true;

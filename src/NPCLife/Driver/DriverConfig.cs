@@ -44,9 +44,6 @@ namespace NPCLife.Driver
 
         // ---- 通用配置 ----
 
-        /// <summary>历史环形缓冲区容量。超出时裁剪最旧事件。</summary>
-        public int RecentHistoryCapacity = 200;
-
         /// <summary>Agent 多轮工具调用最大轮数（防死循环）。</summary>
         public int MaxAgentRounds = 100;
 

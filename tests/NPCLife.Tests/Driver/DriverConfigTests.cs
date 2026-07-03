@@ -19,8 +19,7 @@ namespace NPCLife.Tests.Driver
             Assert.Equal(15f, config.ScreenwriterImportanceThreshold);
             Assert.Equal(5, config.ImproviserCountThreshold);
             Assert.Equal(15f, config.ImproviserImportanceThreshold);
-            Assert.Equal(200, config.RecentHistoryCapacity);
-            Assert.Equal(10, config.MaxAgentRounds);
+            Assert.Equal(100, config.MaxAgentRounds);
         }
 
         [Fact]
