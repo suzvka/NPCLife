@@ -45,7 +45,7 @@ namespace NPCLife.Workspace
         /// 推送单句台词到当前剧情线。每句立即投递到游戏侧显示。可并行调用多句。
         /// </summary>
         [McpTool(Name = "push_line",
-                 Description = "写一句台词，建议并发调用，一次性写完整个脚本，以节省token")]
+                 Description = "[评分+3] 写一句台词，建议并发调用，一次性写完整个脚本，以节省token")]
         public string PushLine(
             [McpParam(Description = "本句台词主体角色(如说话人)的ID")]
             string speakerId,
@@ -86,7 +86,7 @@ namespace NPCLife.Workspace
         /// 结束本轮叙事。归档 recap，可选给导演留言。所有台词推送完毕后必须调用。
         /// </summary>
         [McpTool(Name = "finish_round",
-                 Description = "撰写总结报告，结束本轮工作")]
+                 Description = "[评分+10] 撰写总结报告，结束本轮工作")]
         public string FinishRound(
             [McpParam(Description = "本轮叙事的总结，将作为下一轮叙事的前情提要")]
             string recap,
@@ -109,7 +109,9 @@ namespace NPCLife.Workspace
                                          ws.CreatedByRole);
                 if (!ok) return "{}";
 
-                return SerializeWriterView(manager.Get(workspaceId));
+                // 返回简略确认 + 标记循环终止
+                McpSkillRegistry.RoundFinished.Value = true;
+                return "{\"ok\":true}";
             }
             catch (Exception e)
             {

@@ -47,7 +47,7 @@ namespace NPCLife.Infrastructure.Mcp
         /// 查询词条释义。并行查询内部缓存和所有外部源，返回全部命中的释义列表。
         /// </summary>
         [McpTool(Name = "lookup_term",
-                 Description = "查询词条释义。并行查询所有知识源，返回全部命中的释义列表。")]
+                 Description = "[评分-1] 查询词条释义。并行查询所有知识源，返回全部命中的释义列表。")]
         public string LookupTerm(
             [McpParam(Description = "要查询的词条名")] string term)
         {
@@ -78,7 +78,7 @@ namespace NPCLife.Infrastructure.Mcp
         /// 主动学习一个词条的释义并存储到内部知识库。直接覆盖已有词条。
         /// </summary>
         [McpTool(Name = "learn_term",
-                 Description = "将一个词条及其释义存储到内部知识库。若已存在则直接覆盖。")]
+                 Description = "[评分+2] 将一个词条及其释义存储到内部知识库。若已存在则直接覆盖。")]
         public string LearnTerm(
             [McpParam(Description = "词条名")] string term,
             [McpParam(Description = "释义文本")] string definition,
@@ -121,7 +121,7 @@ namespace NPCLife.Infrastructure.Mcp
         /// 列出已知词条，支持前缀和标签过滤。
         /// </summary>
         [McpTool(Name = "list_known_terms",
-                 Description = "列出内部知识库中的已知词条摘要。支持前缀过滤。")]
+                 Description = "[评分-2] 列出内部知识库中的已知词条摘要。支持前缀过滤。")]
         public string ListKnownTerms(
             [McpParam(Description = "前缀过滤，如 '心灵'。留空=全部",
                       Required = McpRequired.False)] string prefix = null,
@@ -155,7 +155,7 @@ namespace NPCLife.Infrastructure.Mcp
         /// 删除指定词条。
         /// </summary>
         [McpTool(Name = "forget_term",
-                 Description = "从内部知识库中删除指定词条。不存在时静默返回。")]
+                 Description = "[评分-1] 从内部知识库中删除指定词条。不存在时静默返回。")]
         public string ForgetTerm(
             [McpParam(Description = "要删除的词条名")] string term)
         {
@@ -186,7 +186,7 @@ namespace NPCLife.Infrastructure.Mcp
         /// 获取指定词条的元数据统计。
         /// </summary>
         [McpTool(Name = "get_term_stats",
-                 Description = "获取指定词条的元数据统计，包含来源、置信度、关联标签等信息。")]
+                 Description = "[评分-2] 获取指定词条的元数据统计，包含来源、置信度、关联标签等信息。")]
         public string GetTermStats(
             [McpParam(Description = "要查询统计的词条名")] string term)
         {

@@ -53,6 +53,12 @@ namespace NPCLife.Framework.Mcp
         /// </summary>
         public static readonly System.Threading.AsyncLocal<bool> AbortRequested = new();
 
+        /// <summary>
+        /// 当前 Agent 运行是否已被 finish_round / finish_session 标记为完成。
+        /// AgentLoop 在每轮工具执行后检查，立即终止循环。
+        /// </summary>
+        public static readonly System.Threading.AsyncLocal<bool> RoundFinished = new();
+
         /// <summary>系统技能 ID，对所有 workspace 隐式可用。</summary>
         public const string SystemSkillId = "system";
 

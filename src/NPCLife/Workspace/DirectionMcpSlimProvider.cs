@@ -33,6 +33,7 @@ namespace NPCLife.Workspace
                 McpTool.FromMethod(typeof(DirectionMcpSlimProvider).GetMethod(nameof(CreateWorkspace)), this),
                 McpTool.FromMethod(typeof(DirectionMcpSlimProvider).GetMethod(nameof(CreateEvent)), this),
                 McpTool.FromMethod(typeof(DirectionMcpSlimProvider).GetMethod(nameof(BranchWorkspace)), this),
+                McpTool.FromMethod(typeof(DirectionMcpSlimProvider).GetMethod(nameof(FinishSession)), this),
             };
         }
 
@@ -41,7 +42,7 @@ namespace NPCLife.Workspace
         // ================================================================
 
         [McpTool(Name = "create_storyline",
-                 Description = "创建新的剧情线，返回完整信息。角色为 Screenwriter，由编剧负责内容创作。")]
+                 Description = "[评分+5] 创建新的剧情线，返回完整信息。角色为 Screenwriter，由编剧负责内容创作。")]
         public string CreateWorkspace(
             [McpParam(Description = "剧情线标题")] string label,
             [McpParam(Description = "剧情分类标签，有多个时用逗号分隔",
@@ -49,7 +50,7 @@ namespace NPCLife.Workspace
             => _inner.CreateWorkspace(label, tags);
 
         [McpTool(Name = "create_event",
-                 Description = "在目标剧情线中新建事件卡片")]
+                 Description = "[评分+5] 在目标剧情线中新建事件卡片")]
         public string CreateEvent(
             [McpParam(Description = "目标剧情线 ID")] string targetWorkspaceId,
             [McpParam(Description = "事件标题")] string defName,
@@ -62,11 +63,16 @@ namespace NPCLife.Workspace
             => _inner.CreateEvent(targetWorkspaceId, defName, description, importance, actorIds, knowledgeTags);
 
         [McpTool(Name = "branch_storyline",
-                 Description = "从父剧情线分叉创建新的子剧情线。拷贝父空间的轮次历史。")]
+                 Description = "[评分+5] 从父剧情线分叉创建新的子剧情线。拷贝父空间的轮次历史。")]
         public string BranchWorkspace(
             [McpParam(Description = "父剧情线 ID")] string parentWorkspaceId,
             [McpParam(Description = "新剧情线标签")] string label,
             [McpParam(Description = "分支前情提要")] string branchRecap)
             => _inner.BranchWorkspace(parentWorkspaceId, label, branchRecap);
+
+        [McpTool(Name = "finish_session",
+                 Description = "[评分+10] 结束本轮导演工作。")]
+        public string FinishSession()
+            => _inner.FinishSession();
     }
 }

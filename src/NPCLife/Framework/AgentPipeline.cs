@@ -11,7 +11,7 @@ namespace NPCLife.Framework
     /// 实现此接口可在 Agent 循环的关键步骤前后注入行为。
     ///
     /// 拦截顺序（按优先级，priority 越小越先执行）：
-    ///   OnBeforePrompt → OnBeforeLlm → OnBeforeToolCall → OnAfterToolCall → OnLoopFinished
+    ///   OnBeforePrompt → OnBeforeLlm → OnAfterLlm → OnBeforeToolCall → OnAfterToolCall → OnLoopFinished
     ///
     /// 默认无拦截器时零开销。
     /// </summary>
@@ -26,6 +26,12 @@ namespace NPCLife.Framework
         /// prompt 构造后、LLM 请求前。可修改 LLM 请求（追加系统消息、修改 temperature 等）。
         /// </summary>
         void OnBeforeLlm(LlmContext ctx);
+
+        /// <summary>
+        /// LLM 响应返回后。可审查响应内容、Token 消耗等。
+        /// ctx.Response 在此时为完整响应对象。
+        /// </summary>
+        void OnAfterLlm(LlmContext ctx);
 
         /// <summary>
         /// LLM 响应后、工具调用前。可拦截或修改工具调用参数。
@@ -51,6 +57,7 @@ namespace NPCLife.Framework
     {
         public virtual void OnBeforePrompt(PromptContext ctx) { }
         public virtual void OnBeforeLlm(LlmContext ctx) { }
+        public virtual void OnAfterLlm(LlmContext ctx) { }
         public virtual void OnBeforeToolCall(ToolCallContext ctx) { }
         public virtual void OnAfterToolCall(ToolCallContext ctx) { }
         public virtual void OnLoopFinished(LoopContext ctx) { }
@@ -63,6 +70,9 @@ namespace NPCLife.Framework
     /// <summary>Prompt 构造上下文。拦截器可修改 UserMessage。</summary>
     public class PromptContext
     {
+        /// <summary>当前运行的唯一标识（如 "run-3"）。</summary>
+        public string RunId;
+
         /// <summary>从事件池 drain 出的事件列表。</summary>
         public IReadOnlyList<IGameEvent> Events;
 
@@ -73,13 +83,30 @@ namespace NPCLife.Framework
     /// <summary>LLM 请求上下文。拦截器可修改 Request 的 messages、tools 等。</summary>
     public class LlmContext
     {
+        /// <summary>当前运行的唯一标识（如 "run-3"）。</summary>
+        public string RunId;
+
+        /// <summary>当前轮次序号（从 0 开始）。</summary>
+        public int Round;
+
         /// <summary>即将发送的 LLM 请求。</summary>
         public LlmRequest Request;
+
+        /// <summary>
+        /// LLM 响应。OnBeforeLlm 时为 null，OnAfterLlm 时为完整响应。
+        /// </summary>
+        public LlmResponse Response;
     }
 
     /// <summary>工具调用上下文。拦截器可审查参数、跳过调用、改写结果。</summary>
     public class ToolCallContext
     {
+        /// <summary>当前运行的唯一标识（如 "run-3"）。</summary>
+        public string RunId;
+
+        /// <summary>当前轮次序号。</summary>
+        public int Round;
+
         /// <summary>工具名称。</summary>
         public string ToolName;
 
@@ -99,6 +126,12 @@ namespace NPCLife.Framework
     /// <summary>循环结束上下文。只读统计信息。</summary>
     public class LoopContext
     {
+        /// <summary>当前运行的唯一标识（如 "run-3"）。</summary>
+        public string RunId;
+
+        /// <summary>Agent 角色。</summary>
+        public AgentRole Role;
+
         /// <summary>总轮数（工具调用次数）。</summary>
         public int Rounds;
 
@@ -195,6 +228,17 @@ namespace NPCLife.Framework
             {
                 try { snapshot[i].OnBeforeLlm(ctx); }
                 catch (Exception ex) { Logger?.Warning($"[AgentPipeline] OnBeforeLlm error: {ex.Message}"); }
+            }
+        }
+
+        /// <summary>执行 OnAfterLlm 链。</summary>
+        internal static void RunAfterLlm(LlmContext ctx)
+        {
+            var snapshot = Snapshot();
+            for (int i = 0; i < snapshot.Count; i++)
+            {
+                try { snapshot[i].OnAfterLlm(ctx); }
+                catch (Exception ex) { Logger?.Warning($"[AgentPipeline] OnAfterLlm error: {ex.Message}"); }
             }
         }
 

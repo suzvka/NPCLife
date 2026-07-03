@@ -34,14 +34,32 @@ namespace NPCLife.Workspace
             {
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(CreateWorkspace)), this),
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(CreateEvent)), this),
-                McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(ListWorkspaces)), this),
-                McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(GetWorkspace)), this),
+                // list_storyline 和 get_storyline 已移至 Director 上下文注入
+                // （BuildDirectorWorkspaceSummary），不再作为 MCP 工具提供
+                //McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(ListWorkspaces)), this),
+                //McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(GetWorkspace)), this),
                 //McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(SuspendWorkspace)), this),
                 //McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(ResumeWorkspace)), this),
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(CloseWorkspace)), this),
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(BranchWorkspace)), this),
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(MergeWorkspaces)), this),
+                McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(FinishSession)), this),
             };
+        }
+
+        // ================================================================
+        // 本轮完成
+        // ================================================================
+
+        /// <summary>
+        /// 通知系统本轮导演工作已完成。所有事件已路由完毕即可调用，结束当前 Agent 循环。
+        /// </summary>
+        [McpTool(Name = "finish_session",
+                 Description = "[评分+10] 结束本轮导演工作。所有事件已处理完毕时调用。")]
+        public string FinishSession()
+        {
+            McpSkillRegistry.RoundFinished.Value = true;
+            return "{\"ok\":true}";
         }
         // ================================================================
         // 创建
@@ -51,7 +69,7 @@ namespace NPCLife.Workspace
         /// 创建新的剧情线剧情线。创建者角色固定为 Director。
         /// </summary>
         [McpTool(Name = "create_storyline",
-                 Description = "创建新的剧情线，返回剧情线完整信息。")]
+                 Description = "[评分+5] 创建新的剧情线，返回剧情线完整信息。")]
         public string CreateWorkspace(
             [McpParam(Description = "剧情线标题")] string label,
             [McpParam(Description = "剧情分类标签，有多个时用逗号分隔",
@@ -83,7 +101,7 @@ namespace NPCLife.Workspace
         /// 创建的事件 DefName 建议以 DirectorBeat_ 为前缀。
         /// </summary>
         [McpTool(Name = "create_event",
-                 Description = "在指定剧情线中新建事件卡片")]
+                 Description = "[评分+5] 在指定剧情线中新建事件卡片")]
         public string CreateEvent(
             [McpParam(Description = "目标剧情线 ID")] string targetWorkspaceId,
             [McpParam(Description = "事件标题")] string defName,
@@ -251,7 +269,7 @@ namespace NPCLife.Workspace
         /// 关闭剧情线（完成或废弃）。仅 Director 可调用。
         /// </summary>
         [McpTool(Name = "close_workspace",
-                 Description = "关闭剧情线，标记为 Completed 或 Abandoned。")]
+                 Description = "[评分+5] 关闭剧情线，标记为 Completed 或 Abandoned。")]
         public string CloseWorkspace(
             [McpParam(Description = "剧情线 ID")] string workspaceId,
             [McpParam(Description = "结束类型：Completed 或 Abandoned")] string outcomeType,
@@ -293,7 +311,7 @@ namespace NPCLife.Workspace
         /// 从现有剧情线分叉出新空间。仅 Director 可调用，内部由 WorkspaceManager 校验。
         /// </summary>
         [McpTool(Name = "branch_storyline",
-                 Description = "从父剧情线分叉创建新的子剧情线。拷贝父空间的轮次历史，追加一条 Branch 轮。")]
+                 Description = "[评分+5] 从父剧情线分叉创建新的子剧情线。拷贝父空间的轮次历史，追加一条 Branch 轮。")]
         public string BranchWorkspace(
             [McpParam(Description = "父剧情线 ID")] string parentWorkspaceId,
             [McpParam(Description = "新剧情线标签")] string label,
@@ -319,7 +337,7 @@ namespace NPCLife.Workspace
         /// 合并两个剧情线。仅 Director 可调用，内部由 storylineManager 校验。
         /// </summary>
         [McpTool(Name = "merge_storylines",
-                 Description = "合并剧情线")]
+                 Description = "[评分+5] 合并剧情线")]
         public string MergeWorkspaces(
             [McpParam(Description = "源剧情线 ID（将被合并并废弃）")] string sourceWorkspaceId,
             [McpParam(Description = "目标剧情线 ID（接收数据）")] string targetWorkspaceId,

@@ -49,11 +49,12 @@ namespace NPCLife.Agent
         private readonly ICredentialStore _credentialStore;
         private readonly ILogger _logger;
         private readonly string _systemPrompt;
-        private readonly string[] _skillIds;
+        private readonly string[] _defaultSkillIds;
         private readonly int _maxRounds;
         private readonly ICardSerializer _serializer;
         private readonly Action _unsubscribe; // 取消事件订阅的委托
         private readonly Func<string> _contextProvider;
+        private readonly Func<List<LlmMessage>> _preQueriedProvider;
         private readonly float _temperature;
         private readonly List<(string Cred, string Model)> _modelRefs;
         private readonly string _currentModelJson;
@@ -83,7 +84,8 @@ namespace NPCLife.Agent
             IWorkspace workspace,
             AgentLoopDependencies deps,
             string systemPrompt,
-            Func<string> contextProvider = null)
+            Func<string> contextProvider = null,
+            Func<List<LlmMessage>> preQueriedProvider = null)
         {
             _workspace = workspace ?? throw new ArgumentNullException(nameof(workspace));
             _pool = workspace.EventPool ?? throw new ArgumentException("workspace.EventPool is null", nameof(workspace));
@@ -91,10 +93,11 @@ namespace NPCLife.Agent
             _credentialStore = deps.CredentialStore ?? throw new ArgumentNullException(nameof(deps.CredentialStore));
             _logger = deps.Logger ?? throw new ArgumentNullException(nameof(deps.Logger));
             _systemPrompt = systemPrompt ?? "";
-            _skillIds = DeriveSkillIds(workspace);
+            _defaultSkillIds = DeriveSkillIds(workspace);
             _maxRounds = deps.MaxRounds > 0 ? deps.MaxRounds : 10;
             _serializer = deps.Serializer ?? CardSerializer.Default;
             _contextProvider = contextProvider;
+            _preQueriedProvider = preQueriedProvider;
             _temperature = deps.Temperature > 0 ? deps.Temperature : 0.7f;
             _modelRefs = ParseModelRefs(workspace.ModelRefs);
             _currentModelJson = workspace.CurrentModel;
@@ -118,6 +121,19 @@ namespace NPCLife.Agent
             // 回退：使用角色默认技能配置
             var defaults = SkillCatalog.GetDefaultSkillIds(ws.CreatedByRole);
             return defaults?.ToArray() ?? Array.Empty<string>();
+        }
+
+        /// <summary>
+        /// 动态获取当前激活的技能 ID 列表。
+        /// 优先从工作空间的 SkillSlot 读取（反映 activate_skill/deactivate_skill 的实时状态），
+        /// 回退到构造时的默认技能列表。
+        /// </summary>
+        private string[] GetActiveSkillIds()
+        {
+            var activeIds = _workspace.SkillSlot?.ActiveSkillIds;
+            if (activeIds != null && activeIds.Count > 0)
+                return activeIds.ToArray();
+            return _defaultSkillIds;
         }
 
         // ================================================================
@@ -206,6 +222,7 @@ namespace NPCLife.Agent
                 // 管道拦截：允许拦截器（如知识上下文注入）在 prompt 构造后修改用户消息
                 var promptCtx = new PromptContext
                 {
+                    RunId = runId,
                     Events = _drained,
                     UserMessage = userMessage
                 };
@@ -213,23 +230,26 @@ namespace NPCLife.Agent
 
                 if (_messages == null || _messages.Count == 0)
                 {
-                    // 首次激活：完整上下文 + 伪造对话前缀
-                    // 注入的上下文被伪装为 LLM 已审阅并确认的内容，
-                    // 使后续激活时 LLM 跟随自身的“已获取”模式，避免重复查询。
+                    // 首次激活：构建初始消息
                     _messages = new List<LlmMessage>
                     {
                         LlmMessage.System(_systemPrompt),
                         LlmMessage.User(promptCtx.UserMessage),
-                        LlmMessage.Assistant("好的，我已收到基本写作素材，接下来按照推荐步骤执行。我会先阅读已有信息，若信息完整即可直接进入创作阶段。"),
-                        LlmMessage.User("请继续")
+                    };
+                
+                    // 注入预查询工具调用链（伪装为 LLM 已完成信息收集）
+                    var preQueried = _preQueriedProvider?.Invoke();
+                    if (preQueried != null && preQueried.Count > 0)
+                        _messages.AddRange(preQueried);
+                }
+                else
+                {
+                    _messages = new List<LlmMessage>
+                    {
+                        LlmMessage.System(_systemPrompt),
+                        LlmMessage.User(promptCtx.UserMessage)
                     };
                 }
-
-                _messages = new List<LlmMessage>
-                {
-                    LlmMessage.System(_systemPrompt),
-                    LlmMessage.User(promptCtx.UserMessage)
-                };
 
                 // 解析凭证：优先使用模型引用列表，回退到全局激活凭证
                 var credentials = ResolveCredentials();
@@ -258,7 +278,7 @@ namespace NPCLife.Agent
                     var request = BuildLlmRequest();
 
                     // 管道拦截：LLM 请求前
-                    var llmCtx = new LlmContext { Request = request };
+                    var llmCtx = new LlmContext { RunId = runId, Round = _round, Request = request };
                     AgentPipeline.RunBeforeLlm(llmCtx);
 
                     EventBus.Publish(FrameworkEvents.LlmRequestSent, EventArg.WithPayload(
@@ -282,6 +302,10 @@ namespace NPCLife.Agent
                         ("model", response.Model ?? "")
                     ));
 
+                    // 管道拦截：LLM 响应后
+                    llmCtx.Response = response;
+                    AgentPipeline.RunAfterLlm(llmCtx);
+
                     if (!response.HasToolCalls)
                     {
                         // 纯文本回复：追加唯一 assistant 消息，结束循环
@@ -304,14 +328,15 @@ namespace NPCLife.Agent
                     var aborted = false;
 
                     McpSkillRegistry.CurrentWorkspaceId.Value = _pool.WorkspaceId;
+                    McpSkillRegistry.RoundFinished.Value = false;
                     try
                     {
                         foreach (var tc in response.ToolCalls)
                         {
-                            _logger.Message($"[NPCLife.Agent] Tool call: {tc.Name}({tc.Arguments})");
+                            _logger.Message($"[NPCLife.Agent] [run-{runId}][round-{_round}] Tool call: {tc.Name}({tc.Arguments})");
 
                             // 管道拦截：工具调用前
-                            var toolCtx = new ToolCallContext { ToolName = tc.Name, Arguments = tc.Arguments };
+                            var toolCtx = new ToolCallContext { RunId = runId, Round = _round, ToolName = tc.Name, Arguments = tc.Arguments };
                             AgentPipeline.RunBeforeToolCall(toolCtx);
 
                             EventBus.Publish(FrameworkEvents.ToolInvoking, EventArg.WithPayload(
@@ -326,7 +351,7 @@ namespace NPCLife.Agent
                             }
                             else
                             {
-                                result = McpSkillRegistry.InvokeTool(_skillIds, tc.Name, tc.Arguments);
+                                result = McpSkillRegistry.InvokeTool(GetActiveSkillIds(), tc.Name, tc.Arguments);
                                 toolCtx.Result = result;
                             }
 
@@ -340,7 +365,7 @@ namespace NPCLife.Agent
 
                             toolResults.Add((tc.Id, result));
 
-                            _logger.Message($"[NPCLife.Agent] Tool result ({tc.Name}): {TruncateResult(result)}");
+                            _logger.Message($"[NPCLife.Agent] [run-{runId}][round-{_round}] Tool result ({tc.Name}): {TruncateResult(result)}");
 
                             if (McpSkillRegistry.AbortRequested.Value)
                             {
@@ -369,6 +394,7 @@ namespace NPCLife.Agent
                     ));
 
                     if (aborted) break;
+                    if (McpSkillRegistry.RoundFinished.Value) break;
                 }
 
                 // --- Finishing ---
@@ -412,6 +438,8 @@ namespace NPCLife.Agent
             // 管道拦截：循环结束
             AgentPipeline.RunLoopFinished(new LoopContext
             {
+                RunId = runId,
+                Role = (AgentRole)_workspace.CreatedByRole,
                 Rounds = rounds,
                 EventsProcessed = count,
                 NormalCompletion = normalCompletion
@@ -503,7 +531,7 @@ namespace NPCLife.Agent
             {
                 Model = _currentModelName ?? "",
                 Messages = new List<LlmMessage>(_messages),
-                ToolsJson = McpSkillRegistry.GetActiveToolsJson(_skillIds),
+                ToolsJson = McpSkillRegistry.GetActiveToolsJson(GetActiveSkillIds()),
                 Temperature = _temperature
             };
         }
@@ -519,10 +547,6 @@ namespace NPCLife.Agent
             sb.AppendLine("## 待处理事件");
             sb.AppendLine();
             sb.AppendLine(_serializer.SerializeEventList(events));
-
-            sb.AppendLine();
-            sb.AppendLine("请审查事件列表，挑选值得发展的事件，使用 create_workspace / branch_workspace 等工具创建剧情线工作空间。");
-            sb.AppendLine("如果工作空间上下文中包含 focusCharacterIds（导演指定的聚焦角色），请优先围绕这些角色展开叙事。");
 
             if (_contextProvider != null)
             {
