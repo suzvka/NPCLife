@@ -12,7 +12,7 @@ namespace NPCLife.Workspace
     /// <summary>
     /// 写作工具集的 MCP 提供者。通过 IMcpHookProvider 接口注入依赖（WorkspaceManager + ILogger）。
     /// 供编剧和即兴编剧共用。所有"读"操作（事件列表、剧情线上下文）由 prompt 自动注入，
-    /// 此 Provider 仅提供写操作工具（push_line / finish_round）。
+    /// 此 Provider 仅提供写操作工具（push_dialogue / push_narration / push_action / push_pause / route_events / finish_round）。
     /// </summary>
     public class WritingMcpProvider : IMcpHookProvider
     {
@@ -28,12 +28,16 @@ namespace NPCLife.Workspace
         public string HookId => "storyline_writing";
         public string HookName => "写作工具集";
         public string HookDescription => "用于创作具体台词脚本的工具";
+                public string PromptInstruction => "- 必须在同一个工具调用批次中一次性完成所有写作工具调用（dialogue_line、route_events、finish_round），禁止分多轮。\\n- 如果目标是 NPC 台词，只输出 dialogue_line，不要输出 narration_line 和 action_line。\\n- 台词数量目标 8-12 句。\\n- 写台词时注意口语化，技巧如下：\\n-- 遇到表示结束的标点符号就断句。\\n-- 一个自然的实现方式是，如果你想让角色说一段很长的话，那么就多断几句。\\n-- 我们预期此时收到连续多个的同一角色发言。";
 
         public IReadOnlyList<McpTool> GetTools()
         {
             return new McpTool[]
             {
-                McpTool.FromMethod(typeof(WritingMcpProvider).GetMethod(nameof(PushLine)), this),
+                McpTool.FromMethod(typeof(WritingMcpProvider).GetMethod(nameof(PushDialogue)), this),
+                McpTool.FromMethod(typeof(WritingMcpProvider).GetMethod(nameof(PushNarration)), this),
+                McpTool.FromMethod(typeof(WritingMcpProvider).GetMethod(nameof(PushAction)), this),
+                McpTool.FromMethod(typeof(WritingMcpProvider).GetMethod(nameof(PushPause)), this),
                 McpTool.FromMethod(typeof(WritingMcpProvider).GetMethod(nameof(RouteEvents)), this),
                 McpTool.FromMethod(typeof(WritingMcpProvider).GetMethod(nameof(FinishRound)), this),
             };
@@ -43,19 +47,9 @@ namespace NPCLife.Workspace
         // ================================================================
 
         /// <summary>
-        /// 推送单句台词到当前剧情线。每句立即投递到游戏侧显示。可并行调用多句。
+        /// 内部共享实现：推送单句台词到当前剧情线。
         /// </summary>
-        [McpTool(Name = "push_line",
-                 Description = "[dynamic] 写一句台词。其中对话内容建议遇到结束标点符号就断句，以最大化得分。注意：不符合语法或通常文学表述方式的台词将被判定为失败。")]
-        public string PushLine(
-            [McpParam(Description = "本句台词主体角色(如说话人)的ID")]
-            string speakerId,
-            [McpParam(Description = "正文。pause 类型时可为空。")]
-            string text,
-            [McpParam(Description = "本行起始延迟秒数，默认 0。")]
-            double delay = 0,
-            [McpParam(Description = "类型：[+3,单句过长时-1]dialogue(角色对话) / [+1]narration(旁白/环境描写) / [+1]action(动作描写) / [+1]pause(纯停顿)，默认 dialogue。")]
-            string type = "dialogue")
+        private string PushLineInternal(string speakerId, string text, double delay, string type)
         {
             try
             {
@@ -74,9 +68,67 @@ namespace NPCLife.Workspace
             }
             catch (Exception e)
             {
-                _logger.Warning($"[NPCLife.WritingMcp] push_line failed: {e.Message}");
+                _logger.Warning($"[NPCLife.WritingMcp] push_line({type}) failed: {e.Message}");
                 return "{}";
             }
+        }
+
+        /// <summary>
+        /// 推送一句角色对话。每句立即投递到游戏侧显示。可并行调用多句。
+        /// </summary>
+        [McpTool(Name = "dialogue_line",
+                 Description = "[+3] 写一句台词")]
+        public string PushDialogue(
+            [McpParam(Description = "说话角色的ID")]
+            string speakerId,
+            [McpParam(Description = "对话正文")]
+            string text,
+            [McpParam(Description = "本行起始延迟秒数，默认 0。")]
+            double delay = 0)
+        {
+            return PushLineInternal(speakerId, text, delay, "dialogue");
+        }
+
+        /// <summary>
+        /// 推送一句旁白或环境描写。
+        /// </summary>
+        [McpTool(Name = "narration_line",
+                 Description = "[+1] 写一句旁白或环境描写")]
+        public string PushNarration(
+            [McpParam(Description = "旁白正文")]
+            string text,
+            [McpParam(Description = "本行起始延迟秒数，默认 0。")]
+            double delay = 0)
+        {
+            return PushLineInternal("", text, delay, "narration");
+        }
+
+        /// <summary>
+        /// 推送一句动作描写。
+        /// </summary>
+        [McpTool(Name = "action_line",
+                 Description = "[+1] 写一句动作描写")]
+        public string PushAction(
+            [McpParam(Description = "动作主体角色ID")]
+            string speakerId,
+            [McpParam(Description = "动作描写正文")]
+            string text,
+            [McpParam(Description = "本行起始延迟秒数，默认 0。")]
+            double delay = 0)
+        {
+            return PushLineInternal(speakerId, text, delay, "action");
+        }
+
+        /// <summary>
+        /// 插入一个纯停顿。
+        /// </summary>
+        [McpTool(Name = "pause_",
+                 Description = "[+1] 插入一个纯停顿")]
+        public string PushPause(
+            [McpParam(Description = "停顿时长秒数，默认 0")]
+            double delay = 0)
+        {
+            return PushLineInternal("", "", delay, "pause");
         }
 
         // ================================================================
@@ -146,7 +198,11 @@ namespace NPCLife.Workspace
 
                 int routed = 0;
                 if (events.Count > 0 && manager.RouteEvents(directorWs.Id, events, focusList.Count > 0 ? focusList : null))
+                {
                     routed = events.Count;
+                    // 推送成功后从源工作空间事件池中移除已路由事件
+                    sourceWs.EventPool?.RemoveEvents(ids);
+                }
 
                 var w = new JsonWriter(128);
                 w.Prop("success", routed > 0);
@@ -172,16 +228,16 @@ namespace NPCLife.Workspace
         /// 结束本轮叙事。归档 recap，可选给导演留言。所有台词推送完毕后必须调用。
         /// </summary>
         [McpTool(Name = "finish_round",
-                 Description = "[评分+20] 撰写总结报告，结束本轮工作")]
+                 Description = "[+20] 撰写总结报告，结束本轮工作")]
         public string FinishRound(
             [McpParam(Description = "本轮叙事的总结，将作为下一轮叙事的前情提要")]
             string recap,
             [McpParam(Description = "给工作群组的留言，说明剧情线是否可继续、期望接收什么类型的事件等",
                       Required = McpRequired.False)]
             string directorNote = null,
-            [McpParam(Description = "要丢弃的事件 ID，多个用逗号分隔。已处理完毕不再需要的事件应在此列出，系统将清除这些事件释放资源。",
+            [McpParam(Description = "本轮叙事中使用到的事件 ID，多个用逗号分隔。你写的台词如果涉及某个事件，就应在此标记它。",
                       Required = McpRequired.False)]
-            string discardedEventIds = null)
+            string usedEventIds = null)
         {
             try
             {
@@ -198,10 +254,10 @@ namespace NPCLife.Workspace
                                          ws.CreatedByRole);
                 if (!ok) return "{}";
 
-                // 丢弃指定事件
-                if (!string.IsNullOrEmpty(discardedEventIds))
+                // 标记并移除本轮叙事已使用的事件
+                if (!string.IsNullOrEmpty(usedEventIds))
                 {
-                    var ids = ParseStringList(discardedEventIds);
+                    var ids = ParseStringList(usedEventIds);
                     if (ws.EventPool != null && ids.Count > 0)
                         ws.EventPool.RemoveEvents(ids);
                 }
