@@ -179,57 +179,5 @@ namespace NPCLife.Tests.Core
             while ((idx = result.IndexOf("\"term\"", idx)) >= 0) { count++; idx++; }
             Assert.Equal(3, count);
         }
-
-        // ================================================================
-        // ForgetTerm
-        // ================================================================
-
-        [Fact]
-        public void ForgetTerm_Existing_DeletesAndReturnsHit()
-        {
-            var provider = CreateProvider(out var kb);
-            kb.Store(new KnowledgeEntry
-            {
-                Term = "Raid", Definition = "attack", Source = "Test"
-            });
-
-            var result = provider.ForgetTerm("Raid");
-            Assert.Contains("\"hit\":true", result);
-            Assert.False(kb.TryLookup("Raid", out _));
-        }
-
-        [Fact]
-        public void ForgetTerm_EmptyTerm_ReturnsError()
-        {
-            var provider = CreateProvider(out _);
-            var result = provider.ForgetTerm("");
-            Assert.Contains("\"error\"", result);
-        }
-
-        // ================================================================
-        // GetTermStats
-        // ================================================================
-
-        [Fact]
-        public void GetTermStats_Found_ReturnsStats()
-        {
-            var provider = CreateProvider(out var kb);
-            kb.Store(new KnowledgeEntry
-            {
-                Term = "Raid", Definition = "attack", Source = "GameDef"
-            });
-
-            var result = provider.GetTermStats("Raid");
-            Assert.Contains("\"hit\":true", result);
-            Assert.Contains("\"source\":\"GameDef\"", result);
-        }
-
-        [Fact]
-        public void GetTermStats_NotFound_ReturnsMiss()
-        {
-            var provider = CreateProvider(out _);
-            var result = provider.GetTermStats("nonexistent");
-            Assert.Contains("\"hit\":false", result);
-        }
     }
 }

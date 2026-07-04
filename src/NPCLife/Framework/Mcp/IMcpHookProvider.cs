@@ -31,6 +31,13 @@ namespace NPCLife.Framework.Mcp
         /// <summary>钩子描述，兼作 Skill 描述。</summary>
         string HookDescription { get; }
 
+        /// <summary>
+        /// 注入到 Agent system prompt 的技能使用说明。
+        /// 当该 Skill 被激活时，此文本会追加到 system prompt 末尾。
+        /// 返回 null 表示不注入任何说明。
+        /// </summary>
+        string PromptInstruction { get; }
+
         /// <summary>返回此提供者暴露的全部 McpTool。</summary>
         IReadOnlyList<McpTool> GetTools();
     }

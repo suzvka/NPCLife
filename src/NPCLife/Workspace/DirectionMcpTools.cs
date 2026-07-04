@@ -27,6 +27,7 @@ namespace NPCLife.Workspace
         public string HookId => "storyline_direction";
         public string HookName => "剧情分支管理";
         public string HookDescription => "剧情线的创建、分支、合并、生命周期管理";
+                public string PromptInstruction => "你是一个无情的事件投递机器，主要判断\"逻辑上事件适合哪个剧情线\"，而非\"编剧接下来可能会怎么写\"。即兴剧情线如果长期闲置会定时唤醒，此时由于没有可用事件会产生幻觉，你有责任避免此事：如果新事件看起来没有前因后果，就推到即兴剧情线。成组推送可以间接定制剧情方向。";
 
         public IReadOnlyList<McpTool> GetTools()
         {
@@ -44,7 +45,7 @@ namespace NPCLife.Workspace
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(CloseWorkspace)), this),
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(BranchWorkspace)), this),
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(MergeWorkspaces)), this),
-                McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(FinishSession)), this),
+                McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(FinishRound)), this),
             };
         }
 
@@ -55,31 +56,10 @@ namespace NPCLife.Workspace
         /// <summary>
         /// 通知系统本轮导演工作已完成。所有事件已路由完毕即可调用，结束当前 Agent 循环。
         /// </summary>
-        [McpTool(Name = "finish_session",
-                 Description = "[+20] 结束本轮导演工作。所有事件已处理完毕时调用。")]
-        public string FinishSession(
-            [McpParam(Description = "要丢弃的事件 ID，多个用逗号分隔。已处理完毕不再需要的事件应在此列出，系统将清除这些事件释放资源。",
-                      Required = McpRequired.False)]
-            string discardedEventIds = null)
+        [McpTool(Name = "finish_round",
+                 Description = "[+20] 结束本轮导演工作。所有事件已路由完毕时调用。")]
+        public string FinishRound()
         {
-            // 丢弃指定事件
-            if (!string.IsNullOrEmpty(discardedEventIds))
-            {
-                try
-                {
-                    var workspaceId = McpSkillRegistry.CurrentWorkspaceId.Value;
-                    if (!string.IsNullOrEmpty(workspaceId))
-                    {
-                        var manager = _getWorkspaceManager();
-                        var ws = manager?.Get(workspaceId);
-                        var ids = ParseStringList(discardedEventIds);
-                        if (ws?.EventPool != null && ids.Count > 0)
-                            ws.EventPool.RemoveEvents(ids);
-                    }
-                }
-                catch { }
-            }
-
             McpSkillRegistry.RoundFinished.Value = true;
             return "{\"ok\":true}";
         }
@@ -91,7 +71,7 @@ namespace NPCLife.Workspace
         /// 创建新的剧情线剧情线。创建者角色固定为 Director。
         /// </summary>
         [McpTool(Name = "create_storyline",
-                 Description = "[+5] 创建新的剧情线")]
+                 Description = "[-10] 创建新的剧情线\\n- 对积分策略的解释：剧情线回收时会有回合积分，因此这里可视作投资本轮积分到可能产生精彩叙事的新剧情线，避免无节制新建。")]
         public string CreateWorkspace(
             [McpParam(Description = "剧情线标题")] string label,
             [McpParam(Description = "剧情分类标签，有多个时用逗号分隔",
@@ -123,7 +103,7 @@ namespace NPCLife.Workspace
         /// 创建的事件 DefName 建议以 DirectorBeat_ 为前缀。
         /// </summary>
         [McpTool(Name = "create_event",
-                 Description = "[+1] 在指定剧情线中新建事件卡片。按标题匹配目标。")]
+                 Description = "[0] 在指定剧情线中新建事件卡片，仅在无合适事件时使用")]
         public string CreateEvent(
             [McpParam(Description = "目标剧情线标题")] string targetLabel,
             [McpParam(Description = "事件标题")] string defName,
@@ -194,10 +174,10 @@ namespace NPCLife.Workspace
                  Description = "[+5] 将事件推送到目标剧情线。按标题匹配目标。")]
         public string RouteEvents(
             [McpParam(Description = "目标剧情线标题")] string targetLabel,
-            [McpParam(Description = "要路由的事件 ID，多个用逗号分隔")] string eventIds,
+            [McpParam(Description = "事件 ID，逗号分隔")] string eventIds,
             [McpParam(Description = "附带给目标剧情线的备注",
                       Required = McpRequired.False)] string message = null,
-            [McpParam(Description = "聚焦角色 ID，逗号分隔，用于指定该批事件应聚焦的角色",
+            [McpParam(Description = "本事件涉及的主要角色ID，逗号分隔",
                       Required = McpRequired.False)] string focusCharacterIds = null,
             [McpParam(Description = "知识库索引标签，逗号分隔，用于标记专有名词，避免接收方产生误解",
                       Required = McpRequired.False)] string knowledgeTags = null)
@@ -240,7 +220,11 @@ namespace NPCLife.Workspace
 
                 int routed = 0;
                 if (events.Count > 0 && manager.RouteEvents(targetWs.Id, events, focusList.Count > 0 ? focusList : null))
+                {
                     routed = events.Count;
+                    // 推送成功后从源工作空间事件池中移除已路由事件
+                    sourceWs.EventPool?.RemoveEvents(ids);
+                }
 
                 var w = new JsonWriter(128);
                 w.Prop("success", routed > 0);
@@ -362,23 +346,20 @@ namespace NPCLife.Workspace
         /// 关闭剧情线（完成或废弃）。仅 Director 可调用。
         /// </summary>
         [McpTool(Name = "close_workspace",
-                 Description = "[+5] 关闭剧情线，标记为 Completed 或 Abandoned。")]
+                 Description = "[+10] 关闭剧情线")]
         public string CloseWorkspace(
-            [McpParam(Description = "剧情线 ID")] string workspaceId,
-            [McpParam(Description = "结束类型：Completed 或 Abandoned")] string outcomeType,
-            [McpParam(Description = "结束原因描述",
-                      Required = McpRequired.False)] string reason = null)
+            [McpParam(Description = "剧情线 ID")] string workspaceId)
         {
             try
             {
+                string outcomeType = "Completed";
+                string reason = null;
                 var manager = _getWorkspaceManager();
                 if (manager == null) return "{}";
 
                 WorkspaceStatus targetStatus;
                 if (string.Equals(outcomeType, "Completed", StringComparison.OrdinalIgnoreCase))
                     targetStatus = WorkspaceStatus.Completed;
-                else if (string.Equals(outcomeType, "Abandoned", StringComparison.OrdinalIgnoreCase))
-                    targetStatus = WorkspaceStatus.Abandoned;
                 else
                 {
                     _logger.Warning($"[NPCLife.DirectionMcp] close_workspace: invalid outcomeType '{outcomeType}', must be Completed or Abandoned.");
@@ -404,7 +385,7 @@ namespace NPCLife.Workspace
         /// 从现有剧情线分叉出新空间。仅 Director 可调用，内部由 WorkspaceManager 校验。
         /// </summary>
         [McpTool(Name = "branch_storyline",
-                 Description = "[+5] 从父剧情线分叉创建新的子剧情线。拷贝父空间的轮次历史，追加一条 Branch 轮。")]
+                 Description = "[0] 从父剧情线分叉创建新的子剧情线。拷贝父空间的轮次历史，追加一条 Branch 轮。")]
         public string BranchWorkspace(
             [McpParam(Description = "父剧情线 ID")] string parentWorkspaceId,
             [McpParam(Description = "新剧情线标签")] string label,
@@ -430,7 +411,7 @@ namespace NPCLife.Workspace
         /// 合并两个剧情线。仅 Director 可调用，内部由 storylineManager 校验。
         /// </summary>
         [McpTool(Name = "merge_storylines",
-                 Description = "[+5] 合并剧情线")]
+                 Description = "[+20] 合并剧情线")]
         public string MergeWorkspaces(
             [McpParam(Description = "源剧情线 ID（将被合并并废弃）")] string sourceWorkspaceId,
             [McpParam(Description = "目标剧情线 ID（接收数据）")] string targetWorkspaceId,

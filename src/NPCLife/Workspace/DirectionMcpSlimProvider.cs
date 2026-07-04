@@ -25,6 +25,7 @@ namespace NPCLife.Workspace
         public string HookId => "storyline_direction_slim";
         public string HookName => "剧情分支管理(精简)";
         public string HookDescription => "剧情线的创建、事件创作和分支。仅 Action 操作。导演专用。";
+                public string PromptInstruction => null;
 
         public IReadOnlyList<McpTool> GetTools()
         {
@@ -34,7 +35,7 @@ namespace NPCLife.Workspace
                 McpTool.FromMethod(typeof(DirectionMcpSlimProvider).GetMethod(nameof(CreateEvent)), this),
                 McpTool.FromMethod(typeof(DirectionMcpSlimProvider).GetMethod(nameof(RouteEvents)), this),
                 McpTool.FromMethod(typeof(DirectionMcpSlimProvider).GetMethod(nameof(BranchWorkspace)), this),
-                McpTool.FromMethod(typeof(DirectionMcpSlimProvider).GetMethod(nameof(FinishSession)), this),
+                McpTool.FromMethod(typeof(DirectionMcpSlimProvider).GetMethod(nameof(FinishRound)), this),
             };
         }
 
@@ -84,12 +85,9 @@ namespace NPCLife.Workspace
                       Required = McpRequired.False)] string knowledgeTags = null)
             => _inner.RouteEvents(targetLabel, eventIds, message, focusCharacterIds, knowledgeTags);
 
-        [McpTool(Name = "finish_session",
+        [McpTool(Name = "finish_round",
                  Description = "[评分+10] 结束本轮导演工作。")]
-        public string FinishSession(
-            [McpParam(Description = "要丢弃的事件 ID，多个用逗号分隔。",
-                      Required = McpRequired.False)]
-            string discardedEventIds = null)
-            => _inner.FinishSession(discardedEventIds);
+        public string FinishRound()
+            => _inner.FinishRound();
     }
 }

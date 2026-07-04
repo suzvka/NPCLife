@@ -30,6 +30,8 @@ namespace NPCLife.Framework.Mcp
             public string Id;
             public string Name;
             public string Description;
+            /// <summary>注入到 system prompt 的技能使用说明。null 表示无说明。</summary>
+            public string Prompt;
         }
 
         // skill 元数据
@@ -54,7 +56,7 @@ namespace NPCLife.Framework.Mcp
         public static readonly System.Threading.AsyncLocal<bool> AbortRequested = new();
 
         /// <summary>
-        /// 当前 Agent 运行是否已被 finish_round / finish_session 标记为完成。
+        /// 当前 Agent 运行是否已被 finish_round 标记为完成。
         /// AgentLoop 在每轮工具执行后检查，立即终止循环。
         /// </summary>
         public static readonly System.Threading.AsyncLocal<bool> RoundFinished = new();
@@ -87,9 +89,9 @@ namespace NPCLife.Framework.Mcp
         /// 注册单个技能的元数据。InitializeDefaults 已包含全部业务技能，
         /// 测试或动态扩展场景可使用此方法注册额外技能。
         /// </summary>
-        public static void RegisterSkill(string id, string name, string description)
+        public static void RegisterSkill(string id, string name, string description, string prompt = null)
         {
-            _skillMetas[id] = new SkillMeta { Id = id, Name = name, Description = description };
+            _skillMetas[id] = new SkillMeta { Id = id, Name = name, Description = description, Prompt = prompt };
             if (!_skillTools.ContainsKey(id))
                 _skillTools[id] = new List<McpTool>();
         }
@@ -165,8 +167,8 @@ namespace NPCLife.Framework.Mcp
 
             lock (_lock)
             {
-                // 确保 Skill 元数据存在（若已存在则覆盖 name/description）
-                RegisterSkill(provider.HookId, provider.HookName, provider.HookDescription);
+                // 确保 Skill 元数据存在（若已存在则覆盖 name/description/prompt）
+                RegisterSkill(provider.HookId, provider.HookName, provider.HookDescription, provider.PromptInstruction);
 
                 int count = 0;
                 var tools = provider.GetTools();
@@ -327,6 +329,34 @@ namespace NPCLife.Framework.Mcp
             lock (_lock)
             {
                 return _skillMetas.Keys.ToList();
+            }
+        }
+
+        /// <summary>
+        /// 获取指定激活技能集合的 PromptInstruction 拼接文本。
+        /// 仅包含 Prompt 非 null/空的技能，按 Skill 名为小标题分段。
+        /// 用于注入 Agent system prompt。
+        /// </summary>
+        public static string GetActiveSkillPrompts(IEnumerable<string> activeSkillIds)
+        {
+            if (activeSkillIds == null) return null;
+
+            lock (_lock)
+            {
+                var sb = new StringBuilder();
+                foreach (var skillId in activeSkillIds)
+                {
+                    if (string.IsNullOrEmpty(skillId)) continue;
+                    if (!_skillMetas.TryGetValue(skillId, out var meta)) continue;
+                    if (string.IsNullOrEmpty(meta.Prompt)) continue;
+
+                    sb.Append("## ");
+                    sb.Append(meta.Name);
+                    sb.AppendLine();
+                    sb.AppendLine(meta.Prompt);
+                    sb.AppendLine();
+                }
+                return sb.Length > 0 ? sb.ToString() : null;
             }
         }
 

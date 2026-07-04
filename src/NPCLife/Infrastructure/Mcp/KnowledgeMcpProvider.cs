@@ -25,17 +25,15 @@ namespace NPCLife.Infrastructure.Mcp
 
         public string HookId => "knowledge_management";
         public string HookName => "知识管理";
-        public string HookDescription => "词条查询、学习、列举、删除、统计。注意：知识库不是记忆系统，应只存客观、稳定的事实信息。判断原则：玩家玩了一个小时游戏后，这个词条是否可能需要修改？正确的方式是*不改*";
+        public string HookDescription => "词条查询、学习、列举、删除、统计";
+                public string PromptInstruction => "知识库是储存静态概念的地方，禁止用游戏动态数据污染。一个判断依据：如果玩家连续游戏一个小时，你打算写入的词条是否依然有效？如果有失效风险，那么就不适合。";
 
         public IReadOnlyList<McpTool> GetTools()
         {
             return new McpTool[]
             {
                 McpTool.FromMethod(typeof(KnowledgeMcpProvider).GetMethod(nameof(LookupTerm)), this),
-                McpTool.FromMethod(typeof(KnowledgeMcpProvider).GetMethod(nameof(LearnTerm)), this),
-                McpTool.FromMethod(typeof(KnowledgeMcpProvider).GetMethod(nameof(ListKnownTerms)), this),
-                McpTool.FromMethod(typeof(KnowledgeMcpProvider).GetMethod(nameof(ForgetTerm)), this),
-                McpTool.FromMethod(typeof(KnowledgeMcpProvider).GetMethod(nameof(GetTermStats)), this)
+                McpTool.FromMethod(typeof(KnowledgeMcpProvider).GetMethod(nameof(LearnTerm)), this)
             };
         }
 
@@ -47,7 +45,7 @@ namespace NPCLife.Infrastructure.Mcp
         /// 查询词条释义。并行查询内部缓存和所有外部源，返回全部命中的释义列表。
         /// </summary>
         [McpTool(Name = "lookup_term",
-                 Description = "[-1] 查询词条释义。并行查询所有知识源，返回全部命中的释义列表。")]
+                 Description = "[-5] 查询词条释义。并行查询所有知识源，返回全部命中的释义列表。")]
         public string LookupTerm(
             [McpParam(Description = "要查询的词条名")] string term)
         {
@@ -118,40 +116,6 @@ namespace NPCLife.Infrastructure.Mcp
         }
 
         /// <summary>
-        /// 列出已知词条，支持前缀和标签过滤。
-        /// </summary>
-        [McpTool(Name = "list_known_terms",
-                 Description = "[-10] 列出内部知识库中的已知词条摘要。支持前缀过滤。")]
-        public string ListKnownTerms(
-            [McpParam(Description = "前缀过滤，如 '心灵'。留空=全部",
-                      Required = McpRequired.False)] string prefix = null,
-            [McpParam(Description = "最大返回数，默认 30")] int limit = 30)
-        {
-            try
-            {
-                var svc = _getKnowledgeService();
-                if (svc == null) return "[]";
-
-                var entries = svc.ListAll();
-
-                if (!string.IsNullOrEmpty(prefix))
-                {
-                    entries = entries.Where(e => e.Term != null && e.Term.StartsWith(prefix, StringComparison.Ordinal)).ToList();
-                }
-
-                if (entries.Count > limit)
-                    entries = entries.Take(limit).ToList();
-
-                return SerializeTermSummaryList(entries);
-            }
-            catch (Exception e)
-            {
-                _logger.Warning($"[NPCLife.KnowledgeMcp] list_known_terms failed: {e.Message}");
-                return "[]";
-            }
-        }
-
-        /// <summary>
         /// 删除指定词条。
         /// </summary>
         [McpTool(Name = "forget_term",
@@ -178,36 +142,6 @@ namespace NPCLife.Infrastructure.Mcp
             catch (Exception e)
             {
                 _logger.Warning($"[NPCLife.KnowledgeMcp] forget_term({term}) failed: {e.Message}");
-                return "{\"hit\":false,\"error\":" + JsonHelper.Quote(e.Message) + "}";
-            }
-        }
-
-        /// <summary>
-        /// 获取指定词条的元数据统计。
-        /// </summary>
-        [McpTool(Name = "get_term_stats",
-                 Description = "[-10] 获取指定词条的元数据统计，包含来源、置信度、关联标签等信息。")]
-        public string GetTermStats(
-            [McpParam(Description = "要查询统计的词条名")] string term)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(term))
-                    return "{\"hit\":false,\"error\":\"term is required\"}";
-
-                var svc = _getKnowledgeService();
-                if (svc == null)
-                    return "{\"hit\":false,\"error\":\"KnowledgeService unavailable\"}";
-
-                var hits = svc.Lookup(term);
-                if (hits.Count == 0)
-                    return MakeMiss(term);
-
-                return SerializeTermStatsList(hits);
-            }
-            catch (Exception e)
-            {
-                _logger.Warning($"[NPCLife.KnowledgeMcp] get_term_stats({term}) failed: {e.Message}");
                 return "{\"hit\":false,\"error\":" + JsonHelper.Quote(e.Message) + "}";
             }
         }

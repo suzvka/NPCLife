@@ -30,6 +30,7 @@ namespace NPCLife.Infrastructure.Mcp
         public string HookId => McpSkillRegistry.SystemSkillId;
         public string HookName => "系统";
         public string HookDescription => "系统元工具集（技能列表、激活、反激活、当前时间）";
+                public string PromptInstruction => null;
 
         public IReadOnlyList<McpTool> GetTools()
         {
