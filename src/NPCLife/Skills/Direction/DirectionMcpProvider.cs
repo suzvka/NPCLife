@@ -2,17 +2,23 @@ using NPCLife.Cards;
 using NPCLife.Core;
 using NPCLife.Framework;
 using NPCLife.Framework.Mcp;
+using NPCLife.Workspace;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace NPCLife.Workspace
+namespace NPCLife.Skills
 {
     /// <summary>
     /// 导演 Agent 的 MCP 工具提供者。通过 IMcpHookProvider 接口注入依赖（WorkspaceManager + ILogger），
     /// 零静态耦合。
     /// </summary>
+    [SkillDefinition(
+        Id = "storyline_direction",
+        Name = "剧情分支管理",
+        Description = "剧情线的创建、分支、合并、生命周期管理",
+        DefaultRoles = new[] { WorkspaceRole.Director })]
     public class DirectionMcpProvider : IMcpHookProvider
     {
         private readonly Func<IWorkspaceManager> _getWorkspaceManager;
@@ -58,8 +64,28 @@ namespace NPCLife.Workspace
         /// </summary>
         [McpTool(Name = "finish_round",
                  Description = "[+20] 结束本轮导演工作。所有事件已路由完毕时调用。")]
-        public string FinishRound()
+        public string FinishRound(
+            [McpParam(Description = "本轮已处理的事件 ID，多个用逗号分隔。包括已路由的、已确认无需路由的。未在此列出的事件将被视为忽略，重要度减半。",
+                      Required = McpRequired.False)]
+            string usedEventIds = null)
         {
+            try
+            {
+                var workspaceId = McpSkillRegistry.CurrentWorkspaceId.Value;
+                if (!string.IsNullOrEmpty(workspaceId) && !string.IsNullOrEmpty(usedEventIds))
+                {
+                    var manager = _getWorkspaceManager();
+                    var ws = manager?.Get(workspaceId);
+                    var ids = ParseStringList(usedEventIds);
+                    if (ws?.EventPool != null && ids.Count > 0)
+                        ws.EventPool.RemoveEvents(ids);
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.Warning($"[NPCLife.DirectionMcp] finish_round cleanup failed: {e.Message}");
+            }
+
             McpSkillRegistry.RoundFinished.Value = true;
             return "{\"ok\":true}";
         }
@@ -75,7 +101,9 @@ namespace NPCLife.Workspace
         public string CreateWorkspace(
             [McpParam(Description = "剧情线标题")] string label,
             [McpParam(Description = "剧情分类标签，有多个时用逗号分隔",
-                      Required = McpRequired.False)] string tags = null)
+                      Required = McpRequired.False)] string tags = null,
+            [McpParam(Description = "剧情线描述/简介，说明这条剧情线的叙事方向",
+                      Required = McpRequired.False)] string description = null)
         {
             try
             {
@@ -85,6 +113,11 @@ namespace NPCLife.Workspace
                 var tagList = ParseStringList(tags);
 
                 var ws = manager.Create(label, WorkspaceRole.Screenwriter);
+
+                // 存储导演对剧情线的描述
+                if (!string.IsNullOrEmpty(description))
+                    manager.SetDirectorMessage(ws.Id, description);
+
                 return SerializeDirectorView(ws);
             }
             catch (Exception e)
@@ -225,6 +258,10 @@ namespace NPCLife.Workspace
                     // 推送成功后从源工作空间事件池中移除已路由事件
                     sourceWs.EventPool?.RemoveEvents(ids);
                 }
+
+                // 存储导演对目标剧情线的备注/描述
+                if (!string.IsNullOrEmpty(message))
+                    manager.SetDirectorMessage(targetWs.Id, message);
 
                 var w = new JsonWriter(128);
                 w.Prop("success", routed > 0);

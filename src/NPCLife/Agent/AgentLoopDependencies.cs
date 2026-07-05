@@ -25,9 +25,6 @@ namespace NPCLife.Agent
         /// <summary>Agent 多轮工具调用最大轮数（防死循环）。默认 10。</summary>
         public int MaxRounds;
 
-        /// <summary>LLM 采样温度（0~2）。默认 0.7。</summary>
-        public float Temperature;
-
         /// <summary>
         /// 创建生产环境默认配置。宿主只需填充 Llm、CredentialStore、Logger 即可工作。
         /// </summary>
@@ -42,8 +39,7 @@ namespace NPCLife.Agent
                 CredentialStore = credentialStore,
                 Logger = logger,
                 Serializer = CardSerializer.Default,
-                MaxRounds = 10,
-                Temperature = 0.7f
+                MaxRounds = 10
             };
         }
     }

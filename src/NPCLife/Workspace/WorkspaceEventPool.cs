@@ -81,8 +81,44 @@ namespace NPCLife.Workspace
             if (PendingCount >= effectiveCount
                 || TotalImportance >= effectiveImportance)
             {
-                OnThresholdReached?.Invoke();
+                // 延迟激活：达阈值时不立即触发，而是设置标志位并记录时间。
+                // TryFireDeferred 由宿主每帧调用，期满后才真正触发 OnThresholdReached。
+                // 每次 Append 时刷新时间戳以重置 debounce，确保批量路由全部到达后统一激活。
+                _ws.ThresholdReached = true;
+                _ws.ThresholdReachedAt = DateTime.UtcNow;
             }
+        }
+
+        // ================================================================
+        // IEventLog: 延迟激活
+        // ================================================================
+
+        /// <summary>
+        /// 每帧由宿主调用。若阈值已达且 debounce 期满，则触发 OnThresholdReached。
+        /// 期满后自动清除 ThresholdReached 标志。
+        /// </summary>
+        public bool TryFireDeferred()
+        {
+            if (!_ws.ThresholdReached) return false;
+
+            int debounceMs = _config.ThresholdDebounceMs;
+            if (debounceMs <= 0)
+            {
+                // debounce 禁用：立即触发
+                _ws.ThresholdReached = false;
+                OnThresholdReached?.Invoke();
+                return true;
+            }
+
+            double elapsed = (DateTime.UtcNow - _ws.ThresholdReachedAt).TotalMilliseconds;
+            if (elapsed >= debounceMs)
+            {
+                _ws.ThresholdReached = false;
+                OnThresholdReached?.Invoke();
+                return true;
+            }
+
+            return false;
         }
 
         // ================================================================

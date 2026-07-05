@@ -3,6 +3,7 @@ using NPCLife.Framework;
 using NPCLife.Framework.Llm;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -48,7 +49,7 @@ namespace NPCLife.Infrastructure.Llm
                 // 调试：记录请求 JSON
                 _logger?.Message($"[NPCLife.OpenAiAdapter] Request JSON: {TruncateJson(requestJson)}");
                 
-                string responseJson = SendHttpRequest("/v1/chat/completions", requestJson);
+                string responseJson = SendHttpRequest(_config.ChatEndpoint ?? "/v1/chat/completions", requestJson);
                 var response = ParseChatResponse(responseJson);
                 
                 // 调试：记录响应状态
@@ -81,8 +82,9 @@ namespace NPCLife.Infrastructure.Llm
             error = null;
             try
             {
-                // 先用 /v1/models 测试连通性
-                string modelsJson = SendHttpRequest("/v1/models", null, HttpMethod.Get);
+                // 先用模型列表端点测试连通性
+                string modelsPath = !string.IsNullOrEmpty(_config.ModelsEndpoint) ? _config.ModelsEndpoint : "/v1/models";
+                string modelsJson = SendHttpRequest(modelsPath, null, HttpMethod.Get);
                 if (!string.IsNullOrEmpty(modelsJson))
                     return true;
             }
@@ -94,10 +96,10 @@ namespace NPCLife.Infrastructure.Llm
             try
             {
                 var testRequest = LlmRequest.SinglePrompt(
-                    _config.ModelName,
+                    _config.ModelNames?.FirstOrDefault() ?? "",
                     "Hi. Respond with just 'ok'.");
                 string requestJson = BuildChatRequest(testRequest);
-                string responseJson = SendHttpRequest("/v1/chat/completions", requestJson);
+                string responseJson = SendHttpRequest(_config.ChatEndpoint ?? "/v1/chat/completions", requestJson);
                 var response = ParseChatResponse(responseJson);
                 if (response.IsSuccess)
                     return true;
@@ -118,7 +120,8 @@ namespace NPCLife.Infrastructure.Llm
         {
             try
             {
-                string json = SendHttpRequest("/v1/models", null, HttpMethod.Get);
+                string modelsPath = !string.IsNullOrEmpty(_config.ModelsEndpoint) ? _config.ModelsEndpoint : "/v1/models";
+                string json = SendHttpRequest(modelsPath, null, HttpMethod.Get);
                 if (string.IsNullOrEmpty(json))
                     return new string[0];
 
@@ -237,8 +240,20 @@ namespace NPCLife.Infrastructure.Llm
             var w = new JsonWriter(512);
             w.Prop("role", msg.Role ?? "user");
 
-            if (msg.Content != null)
+            // content：assistant 消息必须始终显式输出（JsonWriter.Prop 会跳过空字符串，
+            // 导致 thinking-mode 模型将缺失 content 的消息误判为思考模式响应）。
+            // 注意：必须输出 "" 而非 null——API 将 content:null 视为思考模式标记。
+            if (msg.Role == "assistant")
+            {
+                if (!string.IsNullOrEmpty(msg.Content))
+                    w.Prop("content", msg.Content);
+                else
+                    w.PropRaw("content", "\"\""); // 显式输出空字符串，区分于思考模式的 null
+            }
+            else if (msg.Content != null)
+            {
                 w.Prop("content", msg.Content);
+            }
 
             // tool call id（tool 角色）
             if (!string.IsNullOrEmpty(msg.ToolCallId))
@@ -252,6 +267,12 @@ namespace NPCLife.Infrastructure.Llm
                     tcJsons.Add(BuildToolCall(tc));
                 w.ArrayRaw("tool_calls", tcJsons);
             }
+
+            // reasoning_content（thinking mode）：仅当 LLM 实际返回了推理内容时才输出。
+            // 合成消息（如 preQueried）不应包含此字段，否则 API 会误判为 thinking mode 已激活，
+            // 并要求传回实际推理内容（HTTP 400: "reasoning_content must be passed back"）。
+            if (!string.IsNullOrEmpty(msg.ReasoningContent))
+                w.Prop("reasoning_content", msg.ReasoningContent);
 
             return w.Close();
         }
@@ -313,6 +334,10 @@ namespace NPCLife.Infrastructure.Llm
                             // content
                             if (msgDict.TryGetValue("content", out string content))
                                 result.Content = content;
+
+                            // reasoning_content（thinking mode，后续请求必须原样传回）
+                            if (msgDict.TryGetValue("reasoning_content", out string reasoningContent))
+                                result.ReasoningContent = reasoningContent;
 
                             // tool_calls
                             if (msgDict.TryGetValue("tool_calls", out string toolCallsJson))

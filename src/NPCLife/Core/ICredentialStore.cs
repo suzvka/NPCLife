@@ -22,8 +22,9 @@ namespace NPCLife.Core
         bool HasCredentials { get; }
 
         /// <summary>
-        /// 按凭证名 + 模型名解析凭证三元组。
-        /// 将 modelName 覆盖到返回的 credential 上。
+        /// 按凭证名解析凭证。返回凭证的克隆副本。
+        /// modelName 仅在凭证自身未设置 ModelName 时作为回退值使用，
+        /// 不会覆盖用户已在 UI 中显式设置的模型名。
         /// 找不到凭证时返回 null。
         /// </summary>
         LlmCredential Resolve(string credentialName, string modelName);

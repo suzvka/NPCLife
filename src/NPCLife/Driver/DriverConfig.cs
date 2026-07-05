@@ -47,6 +47,14 @@ namespace NPCLife.Driver
         /// <summary>Agent 多轮工具调用最大轮数（防死循环）。</summary>
         public int MaxAgentRounds = 100;
 
+        /// <summary>
+        /// 阈值触发延迟（毫秒）。当事件池达阈值后不立即激活 Agent，
+        /// 而是启动 debounce 等待。等待期间若有新事件到达则重置计时器，
+        /// 期满后才触发 OnThresholdReached。避免跨工作空间批量路由时过早激活。
+        /// 默认 2000ms。
+        /// </summary>
+        public int ThresholdDebounceMs = 2000;
+
         // ---- 查询方法 ----
 
         /// <summary>

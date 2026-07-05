@@ -18,6 +18,9 @@ namespace NPCLife.Cards
         /// <summary>重要度。由事件绑定点直接声明，EventPool 直接累加。</summary>
         float Importance { get; }
 
+        /// <summary>存活轮数。0 = 根据 Importance 自动推导。为 1 时表示一轮后即移除。</summary>
+        int TTL { get; }
+
         /// <summary>涉及的实体引用列表。</summary>
         IReadOnlyList<EventActorRef> Actors { get; }
 
@@ -34,6 +37,7 @@ namespace NPCLife.Cards
         public string EventID { get; set; }
         public string DefName { get; set; }
         public float Importance { get; set; }
+        public int TTL { get; set; }
         public List<EventActorRef> Actors { get; set; }
         public Dictionary<string, string> Payload { get; set; }
         public Dictionary<string, string> ExtensionFields { get; set; }

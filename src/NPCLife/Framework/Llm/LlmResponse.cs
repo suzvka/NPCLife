@@ -11,6 +11,18 @@ namespace NPCLife.Framework.Llm
         /// <summary>LLM 返回的文本内容。tool_calls 时可能为 null/空。</summary>
         public string Content { get; set; } = "";
 
+        /// <summary>
+        /// 推理/思考内容（thinking mode）。某些模型（如 DeepSeek-R1）在 assistant 消息中
+        /// 返回此字段，后续请求中必须原样传回，否则 API 返回 400 错误。
+        /// </summary>
+        public string ReasoningContent { get; set; }
+
+        /// <summary>
+        /// Anthropic Claude Extended Thinking 的思考块列表。
+        /// 从 content 数组中的 thinking 块解析，后续请求中必须原样传回。
+        /// </summary>
+        public List<ThinkingBlock> ThinkingBlocks { get; set; }
+
         /// <summary>工具调用请求列表。LLM 请求工具时非空。</summary>
         public List<LlmToolCall> ToolCalls { get; set; }
 

@@ -234,6 +234,15 @@ namespace NPCLife.Workspace
             PublishUpdated(id);
         }
 
+        public void SetCurrentModel(string workspaceId, string modelJson)
+        {
+            var impl = GetImpl(workspaceId);
+            if (impl == null) return;
+            impl.State.CurrentModel = modelJson;
+            PublishUpdated(workspaceId);
+            _logger.Message($"[NPCLife.Workspace] Workspace '{workspaceId}' currentModel set to '{modelJson}'.");
+        }
+
         // ================================================================
         // 分支
         // ================================================================

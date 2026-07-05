@@ -3,6 +3,7 @@ using NPCLife.Core;
 using NPCLife.Driver;
 using NPCLife.Framework;
 using NPCLife.Framework.Mcp;
+using NPCLife.Skills;
 using NPCLife.Tests.Helpers;
 using NPCLife.Workspace;
 using System;

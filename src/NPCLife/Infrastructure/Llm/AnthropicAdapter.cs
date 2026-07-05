@@ -3,6 +3,7 @@ using NPCLife.Framework;
 using NPCLife.Framework.Llm;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -50,7 +51,7 @@ namespace NPCLife.Infrastructure.Llm
             try
             {
                 string requestJson = BuildChatRequest(request);
-                string responseJson = SendHttpRequest("/v1/messages", requestJson);
+                string responseJson = SendHttpRequest(_config.ChatEndpoint ?? "/v1/messages", requestJson);
                 return ParseChatResponse(responseJson);
             }
             catch (HttpRequestException e)
@@ -74,10 +75,10 @@ namespace NPCLife.Infrastructure.Llm
             {
                 // Anthropic 没有 /v1/models，直接发最小请求测试
                 var testRequest = LlmRequest.SinglePrompt(
-                    _config.ModelName,
+                    _config.ModelNames?.FirstOrDefault() ?? "",
                     "Hi.");
                 string requestJson = BuildChatRequest(testRequest);
-                string responseJson = SendHttpRequest("/v1/messages", requestJson);
+                string responseJson = SendHttpRequest(_config.ChatEndpoint ?? "/v1/messages", requestJson);
                 var response = ParseChatResponse(responseJson);
                 if (response.IsSuccess)
                     return true;
@@ -214,6 +215,19 @@ namespace NPCLife.Infrastructure.Llm
 
             // content：Anthropic 使用 content 数组
             var contentBlocks = new List<string>();
+
+            // thinking 块（Extended Thinking，必须原样传回，位于文本内容之前）
+            if (msg.ThinkingBlocks != null)
+            {
+                foreach (var tb in msg.ThinkingBlocks)
+                {
+                    var thinkWriter = new JsonWriter(256);
+                    thinkWriter.Prop("type", "thinking");
+                    thinkWriter.Prop("thinking", tb.Thinking ?? "");
+                    thinkWriter.Prop("signature", tb.Signature ?? "");
+                    contentBlocks.Add(thinkWriter.Close());
+                }
+            }
 
             if (msg.Role == "tool")
             {
@@ -358,6 +372,7 @@ namespace NPCLife.Infrastructure.Llm
                     var contentBlocks = JsonParser.ParseObjectArray(contentJson);
                     var textParts = new List<string>();
                     var toolCalls = new List<LlmToolCall>();
+                    var thinkingBlocks = new List<ThinkingBlock>();
 
                     foreach (var block in contentBlocks)
                     {
@@ -378,12 +393,23 @@ namespace NPCLife.Infrastructure.Llm
                                     tc.Arguments = tinput;
                                 toolCalls.Add(tc);
                             }
+                            else if (blockType == "thinking")
+                            {
+                                var tb = new ThinkingBlock();
+                                if (block.TryGetValue("thinking", out string thinking))
+                                    tb.Thinking = thinking;
+                                if (block.TryGetValue("signature", out string signature))
+                                    tb.Signature = signature;
+                                thinkingBlocks.Add(tb);
+                            }
                         }
                     }
 
                     result.Content = textParts.Count > 0 ? string.Join("\n", textParts) : null;
                     if (toolCalls.Count > 0)
                         result.ToolCalls = toolCalls;
+                    if (thinkingBlocks.Count > 0)
+                        result.ThinkingBlocks = thinkingBlocks;
                 }
 
                 // usage

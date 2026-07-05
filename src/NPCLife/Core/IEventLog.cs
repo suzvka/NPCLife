@@ -55,8 +55,17 @@ namespace NPCLife.Core
         /// </summary>
         IReadOnlyList<IGameEvent> DrainPending();
 
-        /// <summary>当池状态变化且满足任一阈值时触发。订阅者（AgentLoop）被动激活。</summary>
+        /// <summary>当池状态变化且满足任一阈值时触发。订阅者（AgentLoop）被动激活。
+        /// 注意：启用 debounce 后，此事件不再由 Append 直接触发，
+        /// 而是由 TryFireDeferred 延迟触发。</summary>
         event Action OnThresholdReached;
+
+        /// <summary>
+        /// 延迟激活尝试。每帧由宿主调用。若事件池已达阈值且 debounce 期满，
+        /// 则触发 OnThresholdReached 并返回 true。用于避免跨工作空间批量路由时
+        /// 第一个事件就立即激活接收方 Agent。
+        /// </summary>
+        bool TryFireDeferred();
 
         /// <summary>
         /// 从 EventCache 中移除指定事件。用于 Agent 选择性清理已处理事件，保留未处理事件供下一轮复用。

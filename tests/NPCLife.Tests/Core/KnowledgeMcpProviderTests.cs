@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using NPCLife.Core;
 using NPCLife.Infrastructure.Knowledge;
-using NPCLife.Infrastructure.Mcp;
+using NPCLife.Skills;
 using NPCLife.Tests.Helpers;
 using Xunit;
 

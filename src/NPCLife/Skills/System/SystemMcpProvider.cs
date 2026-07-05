@@ -6,7 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace NPCLife.Infrastructure.Mcp
+namespace NPCLife.Skills
 {
     /// <summary>
     /// 系统的 MCP 元工具集。提供 Skill 列表查询、激活、反激活能力。

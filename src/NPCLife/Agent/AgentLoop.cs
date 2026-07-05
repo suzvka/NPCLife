@@ -55,12 +55,7 @@ namespace NPCLife.Agent
         private readonly Action _unsubscribe; // 取消事件订阅的委托
         private readonly Func<string> _contextProvider;
         private readonly Func<List<LlmMessage>> _preQueriedProvider;
-        private readonly float _temperature;
-        private readonly List<(string Cred, string Model)> _modelRefs;
-        private readonly string _currentModelJson;
         private string _currentModelName;
-
-        // 状态机字段
         private volatile AgentRunState _state = AgentRunState.Idle;
         private readonly SemaphoreSlim _gate = new SemaphoreSlim(1, 1);
         private readonly CancellationTokenSource _disposeCts = new CancellationTokenSource();
@@ -98,12 +93,6 @@ namespace NPCLife.Agent
             _serializer = deps.Serializer ?? CardSerializer.Default;
             _contextProvider = contextProvider;
             _preQueriedProvider = preQueriedProvider;
-            _temperature = deps.Temperature > 0 ? deps.Temperature : 0.7f;
-            _modelRefs = ParseModelRefs(workspace.ModelRefs);
-            _currentModelJson = workspace.CurrentModel;
-            _currentModelName = ParseSingleRef(_currentModelJson)?.Model;
-
-            // 订阅池子事件——唯一激活路径
             _pool.OnThresholdReached += OnPoolChanged;
             _unsubscribe = () => _pool.OnThresholdReached -= OnPoolChanged;
         }
@@ -251,16 +240,18 @@ namespace NPCLife.Agent
                     };
                 }
 
-                // 解析凭证：优先使用模型引用列表，回退到全局激活凭证
+                // 解析凭证：仅使用当前选中模型，不进行回退
                 var credentials = ResolveCredentials();
                 if (credentials.Count == 0)
-                    throw new InvalidOperationException("No active credentials configured");
-
-                // 确保模型名已设置（回退路径：从首个凭证提取）
-                if (string.IsNullOrEmpty(_currentModelName) && credentials.Count > 0)
                 {
-                    _currentModelName = credentials[0].ModelName;
+                    _logger.Warning($"[NPCLife.Agent] No model configured for workspace '{_workspace.Id}'. Skipping round — drained events discarded. (runId={runId})");
+                    _drained = null;
+                    _state = AgentRunState.Idle;
+                    return;
                 }
+
+                _currentModelName = (credentials[0].ModelNames != null && credentials[0].ModelNames.Count > 0) 
+                    ? credentials[0].ModelNames[0] : "";
 
                 // --- LLM + Tool 循环 ---
                 while (true)
@@ -457,7 +448,7 @@ namespace NPCLife.Agent
         private void FailAndRequeue(string runId, string error)
         {
             _state = AgentRunState.Error;
-            _logger.Warning($"[NPCLife.Agent] LLM error: {error}. Events remain in pool for retry. (runId={runId})");
+            _logger.Warning($"[NPCLife.Agent] LLM error: {error}. Drained events discarded to prevent retry loop. (runId={runId})");
             ErrorHandler.ReportError("AgentLoop", error, new Dictionary<string, string>
             {
                 {"runId", runId},
@@ -465,12 +456,6 @@ namespace NPCLife.Agent
                 {"drainedCount", (_drained?.Count ?? 0).ToString()}
             });
 
-            // 将已 drain 的事件回灌
-            if (_drained != null)
-            {
-                foreach (var evt in _drained)
-                    _pool.Append(evt);
-            }
             _drained = null;
             _messages = null;
 
@@ -506,7 +491,9 @@ namespace NPCLife.Agent
                 {
                     Role = "assistant",
                     Content = response.Content ?? "",
-                    ToolCalls = response.ToolCalls
+                    ToolCalls = response.ToolCalls,
+                    ReasoningContent = response.ReasoningContent,
+                    ThinkingBlocks = response.ThinkingBlocks
                 });
 
                 foreach (var (id, toolResult) in toolResults)
@@ -515,7 +502,13 @@ namespace NPCLife.Agent
             else
             {
                 // 纯文本回复：一条 assistant（仅 content，无 tool_calls）
-                result.Add(LlmMessage.Assistant(response.Content ?? ""));
+                result.Add(new LlmMessage
+                {
+                    Role = "assistant",
+                    Content = response.Content ?? "",
+                    ReasoningContent = response.ReasoningContent,
+                    ThinkingBlocks = response.ThinkingBlocks
+                });
             }
 
             return result;
@@ -530,9 +523,12 @@ namespace NPCLife.Agent
             return new LlmRequest
             {
                 Model = _currentModelName ?? "",
-                Messages = new List<LlmMessage>(_messages),
-                ToolsJson = McpSkillRegistry.GetActiveToolsJson(GetActiveSkillIds()),
-                Temperature = _temperature
+                // 传递 _messages 引用而非拷贝，使拦截器（如 RoundTwoWarningInterceptor）
+                // 通过 ctx.Request.Messages.Add() 注入的消息能持久化到 _messages。
+                // 否则注入的消息在下一轮 BuildLlmRequest 时因拷贝而丢失，
+                // 导致 LLM 无法看到累积的警告历史。
+                Messages = _messages,
+                ToolsJson = McpSkillRegistry.GetActiveToolsJson(GetActiveSkillIds())
             };
         }
 
@@ -579,47 +575,23 @@ namespace NPCLife.Agent
         // ================================================================
 
         /// <summary>
-        /// 解析凭证列表。优先使用模型引用列表，回退到全局激活凭证。
-        /// 当前选中模型会被捧到列表首位。
+        /// 解析凭证。读取工作空间的实时 CurrentModel，
+        /// 从凭证的 ModelNames 列表中定位目标模型。
         /// </summary>
         private IReadOnlyList<LlmCredential> ResolveCredentials()
         {
-            if (_modelRefs != null && _modelRefs.Count > 0)
-            {
-                // 解析当前模型（名称匹配）
-                var current = ParseSingleRef(_currentModelJson);
+            var modelJson = _workspace.CurrentModel;
+            var current = ParseSingleRef(modelJson);
+            if (current == null)
+                return Array.Empty<LlmCredential>();
 
-                var result = new List<LlmCredential>();
-                LlmCredential currentCred = null;
+            var resolved = _credentialStore.Resolve(current.Value.Cred, null);
+            if (resolved == null)
+                return Array.Empty<LlmCredential>();
 
-                foreach (var (cred, model) in _modelRefs)
-                {
-                    var resolved = _credentialStore.Resolve(cred, model);
-                    if (resolved == null) continue;
-
-                    // 检查是否为当前选中模型
-                    if (current.HasValue
-                        && string.Equals(cred, current.Value.Cred, StringComparison.OrdinalIgnoreCase)
-                        && string.Equals(model, current.Value.Model, StringComparison.OrdinalIgnoreCase))
-                    {
-                        currentCred = resolved;
-                    }
-                    else
-                    {
-                        result.Add(resolved);
-                    }
-                }
-
-                // 当前模型捧到首位
-                if (currentCred != null)
-                    result.Insert(0, currentCred);
-
-                if (result.Count > 0)
-                    return result;
-            }
-
-            // 回退：无模型引用或全部解析失败时，使用全局激活凭证
-            return _credentialStore.GetActiveCredentials();
+            // 从凭证的模型列表中复制指定模型名
+            resolved.ModelNames = new List<string> { current.Value.Model };
+            return new[] { resolved };
         }
 
         /// <summary>

@@ -2,18 +2,24 @@ using NPCLife.Cards;
 using NPCLife.Core;
 using NPCLife.Framework;
 using NPCLife.Framework.Mcp;
+using NPCLife.Workspace;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace NPCLife.Workspace
+namespace NPCLife.Skills
 {
     /// <summary>
     /// 写作工具集的 MCP 提供者。通过 IMcpHookProvider 接口注入依赖（WorkspaceManager + ILogger）。
     /// 供编剧和即兴编剧共用。所有"读"操作（事件列表、剧情线上下文）由 prompt 自动注入，
     /// 此 Provider 仅提供写操作工具（push_dialogue / push_narration / push_action / push_pause / route_events / finish_round）。
     /// </summary>
+    [SkillDefinition(
+        Id = "storyline_writing",
+        Name = "写作工具集",
+        Description = "用于创作具体台词脚本的工具",
+        DefaultRoles = new[] { WorkspaceRole.Screenwriter, WorkspaceRole.Improviser })]
     public class WritingMcpProvider : IMcpHookProvider
     {
         private readonly Func<IWorkspaceManager> _getWorkspaceManager;
@@ -28,7 +34,7 @@ namespace NPCLife.Workspace
         public string HookId => "storyline_writing";
         public string HookName => "写作工具集";
         public string HookDescription => "用于创作具体台词脚本的工具";
-                public string PromptInstruction => "- 必须在同一个工具调用批次中一次性完成所有写作工具调用（dialogue_line、route_events、finish_round），禁止分多轮。\\n- 如果目标是 NPC 台词，只输出 dialogue_line，不要输出 narration_line 和 action_line。\\n- 台词数量目标 8-12 句。\\n- 写台词时注意口语化，技巧如下：\\n-- 遇到表示结束的标点符号就断句。\\n-- 一个自然的实现方式是，如果你想让角色说一段很长的话，那么就多断几句。\\n-- 我们预期此时收到连续多个的同一角色发言。";
+                public string PromptInstruction => "写台词时注意口语化，技巧如下：\\n-- 遇到表示结束的标点符号就断句。\\n-- 一个自然的实现方式是，如果你想让角色说一段很长的话，那么就多断几句。\\n-- 我们预期此时收到连续多个的同一角色发言。";
 
         public IReadOnlyList<McpTool> GetTools()
         {
@@ -77,7 +83,7 @@ namespace NPCLife.Workspace
         /// 推送一句角色对话。每句立即投递到游戏侧显示。可并行调用多句。
         /// </summary>
         [McpTool(Name = "dialogue_line",
-                 Description = "[+3] 写一句台词")]
+                 Description = "[+5] 写一句台词，也可以写拟声词")]
         public string PushDialogue(
             [McpParam(Description = "说话角色的ID")]
             string speakerId,
@@ -140,18 +146,16 @@ namespace NPCLife.Workspace
         /// 编剧完成所有台词推送后，可调用此工具将关联事件反馈给导演。
         /// </summary>
         [McpTool(Name = "route_events",
-                 Description = "[+5] 将事件发送给导演")]
+                 Description = "[-5] 将事件退稿并投诉导演")]
         public string RouteEvents(
             [McpParam(Description = "要发送的事件 ID，多个用逗号分隔")] string eventIds,
-            [McpParam(Description = "附带给导演的备注",
-                      Required = McpRequired.False)] string message = null,
-            [McpParam(Description = "聚焦角色 ID，逗号分隔，用于指定该批事件应聚焦的角色",
-                      Required = McpRequired.False)] string focusCharacterIds = null,
-            [McpParam(Description = "知识库索引标签，逗号分隔，用于标记专有名词，避免接收方产生误解",
-                      Required = McpRequired.False)] string knowledgeTags = null)
+            [McpParam(Description = "说明为什么这些事件不该推到此处",
+                      Required = McpRequired.False)] string message = null)
         {
             try
             {
+                string focusCharacterIds = null;
+                string knowledgeTags = null;
                 var manager = _getWorkspaceManager();
                 if (manager == null)
                     return "{\"success\":false,\"error\":\"WorkspaceManager unavailable\"}";

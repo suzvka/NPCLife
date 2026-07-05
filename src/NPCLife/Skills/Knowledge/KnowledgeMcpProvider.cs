@@ -1,17 +1,23 @@
 using NPCLife.Core;
 using NPCLife.Framework;
 using NPCLife.Framework.Mcp;
+using NPCLife.Workspace;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace NPCLife.Infrastructure.Mcp
+namespace NPCLife.Skills
 {
     /// <summary>
     /// 内置知识库的 MCP 工具集。提供词条查询、学习、列举、删除和元数据统计能力。
     /// 通过 IKnowledgeService 接口消费知识库，不依赖具体实现。
     /// </summary>
+    [SkillDefinition(
+        Id = "knowledge_management",
+        Name = "知识管理",
+        Description = "词条查询、学习、列表、删除、统计",
+        DefaultRoles = new[] { WorkspaceRole.Director, WorkspaceRole.Screenwriter, WorkspaceRole.Improviser })]
     public class KnowledgeMcpProvider : IMcpHookProvider
     {
         private readonly Func<IKnowledgeService> _getKnowledgeService;

@@ -83,11 +83,7 @@ namespace NPCLife.Infrastructure.Llm
 
         public LlmCredential Resolve(string credentialName, string modelName)
         {
-            var cred = Get(credentialName);
-            if (cred == null) return null;
-            if (!string.IsNullOrEmpty(modelName))
-                cred.ModelName = modelName;
-            return cred;
+            return Get(credentialName);
         }
 
         // ================================================================
@@ -221,7 +217,10 @@ namespace NPCLife.Infrastructure.Llm
                 if (!_credentials.TryGetValue(name, out var existing))
                     return;
 
-                existing.ModelName = modelName;
+                if (existing.ModelNames == null)
+                    existing.ModelNames = new List<string>();
+                if (!existing.ModelNames.Contains(modelName))
+                    existing.ModelNames.Add(modelName);
                 _credentials[name] = existing.Clone();
             }
             Persist();
@@ -256,14 +255,9 @@ namespace NPCLife.Infrastructure.Llm
             var credJsons = new List<string>();
             foreach (var kv in _credentials)
             {
-                var cred = kv.Value;
                 var cw = new JsonWriter(256);
                 cw.Prop("alias", kv.Key);
-                cw.Prop("baseUrl", cred.BaseUrl ?? "");
-                cw.Prop("apiKey", cred.ApiKey ?? "");
-                cw.Prop("modelName", cred.ModelName ?? "");
-                cw.Prop("providerType", cred.ProviderType.ToString());
-                cw.Prop("timeoutSeconds", cred.TimeoutSeconds);
+                cw.PropRaw("credential", kv.Value.ToJson());
                 credJsons.Add(cw.Close());
             }
             w.ArrayRaw("aliases", credJsons);
@@ -292,18 +286,23 @@ namespace NPCLife.Infrastructure.Llm
                         if (!ad.TryGetValue("alias", out string alias) || string.IsNullOrEmpty(alias))
                             continue;
 
-                        var cred = new LlmCredential();
-                        if (ad.TryGetValue("baseUrl", out string bu)) cred.BaseUrl = bu;
-                        if (ad.TryGetValue("apiKey", out string ak)) cred.ApiKey = ak;
-                        if (ad.TryGetValue("modelName", out string mn)) cred.ModelName = mn;
-                        if (ad.TryGetValue("providerType", out string pt)
-                            && Enum.TryParse<LlmProviderType>(pt, out var pType))
-                            cred.ProviderType = pType;
-                        if (ad.TryGetValue("timeoutSeconds", out string ts)
-                            && int.TryParse(ts, out var tsVal))
-                            cred.TimeoutSeconds = tsVal;
-
-                        _credentials[alias] = cred;
+                        // 新格式：嵌套 credential 对象
+                        if (ad.TryGetValue("credential", out string credJson))
+                        {
+                            _credentials[alias] = LlmCredential.FromJson(credJson);
+                        }
+                        else
+                        {
+                            // 旧格式：平铺字段（向后兼容）
+                            // 将除 alias 外的所有字段重构为 JSON，交给 FromJson 解析
+                            var fields = new JsonWriter(256);
+                            foreach (var kv in ad)
+                            {
+                                if (kv.Key == "alias") continue;
+                                fields.PropRaw(kv.Key, "\"" + kv.Value.Replace("\"", "\\\"") + "\"");
+                            }
+                            _credentials[alias] = LlmCredential.FromJson(fields.Close());
+                        }
                     }
                 }
 

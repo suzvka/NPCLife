@@ -409,6 +409,7 @@ namespace NPCLife.Tests.Driver
             public string EventID { get; set; }
             public string DefName { get; set; }
             public float Importance { get; set; }
+            public int TTL { get; set; }
             public IReadOnlyList<EventActorRef> Actors { get; set; }
             public IDictionary<string, string> Payload { get; set; }
         }

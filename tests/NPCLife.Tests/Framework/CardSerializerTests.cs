@@ -435,6 +435,7 @@ namespace NPCLife.Tests.Framework
             public string EventID { get; set; }
             public string DefName { get; set; }
             public float Importance { get; set; } = 1f;
+            public int TTL { get; set; }
             public IReadOnlyList<EventActorRef> Actors { get; set; } = new List<EventActorRef>();
             public IDictionary<string, string> Payload { get; set; } = new Dictionary<string, string>();
         }

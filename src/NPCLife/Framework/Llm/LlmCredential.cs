@@ -1,13 +1,13 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using NPCLife.Framework;
 
 namespace NPCLife.Framework.Llm
 {
     /// <summary>
-    /// LLM API 凭证。无状态数据类，包含 baseUrl + apiKey + modelName 三元组。
+    /// LLM API 凭证。无状态数据类，维护模型名列表以及 API 访问所需的三元组。
     /// 零外部依赖，不持有任何持久化状态。
-    /// 
-    /// 与 LlmConfig 的区别：LlmConfig 持有默认值和全局状态假设，
-    /// LlmCredential 是纯数据传递对象，所有字段由调用方显式提供。
     /// </summary>
     public class LlmCredential
     {
@@ -17,7 +17,8 @@ namespace NPCLife.Framework.Llm
         /// <summary>API 密钥。</summary>
         public string ApiKey { get; set; }
 
-        public string ModelName { get; set; }
+        /// <summary>此凭证提供的模型名列表。</summary>
+        public List<string> ModelNames { get; set; } = new List<string>();
 
         /// <summary>提供商类型，决定使用哪个适配器。</summary>
         public LlmProviderType ProviderType { get; set; } = LlmProviderType.OpenAI;
@@ -27,6 +28,19 @@ namespace NPCLife.Framework.Llm
 
         /// <summary>HTTP 请求超时（秒），默认 120。</summary>
         public int TimeoutSeconds { get; set; } = 120;
+
+        /// <summary>
+        /// 对话端点路径，相对于 BaseUrl。默认 /v1/chat/completions（OpenAI 兼容）。
+        /// 当使用非标准路径的代理或 Anthropic API 时，可设为 /v1/messages 等。
+        /// </summary>
+        public string ChatEndpoint { get; set; } = "/v1/chat/completions";
+
+        /// <summary>
+        /// 模型列表端点路径，相对于 BaseUrl。默认 /v1/models（OpenAI 兼容）。
+        /// 当 BaseUrl 已包含详细 API 路径时（如 https://open.bigmodel.cn/api/paas/v4/），
+        /// 可设为 /models 以避免拼接出错误路径。
+        /// </summary>
+        public string ModelsEndpoint { get; set; } = "/v1/models";
 
         /// <summary>
         /// API 访问级校验：baseUrl + apiKey 均非空即可。
@@ -39,12 +53,11 @@ namespace NPCLife.Framework.Llm
         }
 
         /// <summary>
-        /// 聊天级校验：baseUrl + apiKey + modelName 均非空。
-        /// 适用于 Agent 发送对话请求的场景。
+        /// 聊天级校验：baseUrl + apiKey + 至少一个模型名。
         /// </summary>
         public bool IsChatReady()
         {
-            return HasApiAccess() && !string.IsNullOrEmpty(ModelName);
+            return HasApiAccess() && ModelNames != null && ModelNames.Count > 0;
         }
 
         /// <summary>
@@ -65,18 +78,74 @@ namespace NPCLife.Framework.Llm
             {
                 BaseUrl = BaseUrl,
                 ApiKey = ApiKey,
-                ModelName = ModelName,
+                ModelNames = ModelNames != null ? new List<string>(ModelNames) : new List<string>(),
                 ProviderType = ProviderType,
                 ExtraHeaders = ExtraHeaders != null
                     ? new Dictionary<string, string>(ExtraHeaders)
                     : null,
-                TimeoutSeconds = TimeoutSeconds
+                TimeoutSeconds = TimeoutSeconds,
+                ChatEndpoint = ChatEndpoint,
+                ModelsEndpoint = ModelsEndpoint
             };
         }
 
         public override string ToString()
         {
-            return $"LlmCredential({ProviderType} {ModelName} @ {BaseUrl})";
+            return $"LlmCredential({ProviderType} [{string.Join(",", ModelNames ?? new List<string>())}] @ {BaseUrl})";
+        }
+
+        // ================================================================
+        // 序列化 / 反序列化（自包含，外部模块无需感知内部字段）
+        // ================================================================
+
+        /// <summary>
+        /// 序列化为 JSON 对象字符串。后续新增字段只需改此处。
+        /// </summary>
+        public string ToJson()
+        {
+            var w = new JsonWriter(256);
+            w.Prop("baseUrl", BaseUrl ?? "");
+            w.Prop("apiKey", ApiKey ?? "");
+            w.Array("modelNames", ModelNames ?? new List<string>());
+            w.Prop("providerType", ProviderType.ToString());
+            w.Prop("timeoutSeconds", TimeoutSeconds);
+            w.Prop("chatEndpoint", ChatEndpoint ?? "/v1/chat/completions");
+            w.Prop("modelsEndpoint", ModelsEndpoint ?? "/v1/models");
+            return w.Close();
+        }
+
+        /// <summary>
+        /// 从 JSON 对象字符串反序列化。同时兼容旧格式（平铺字段）和新格式。
+        /// </summary>
+        public static LlmCredential FromJson(string json)
+        {
+            var cred = new LlmCredential();
+            if (string.IsNullOrEmpty(json)) return cred;
+
+            try
+            {
+                var dict = JsonParser.ParseDict(json);
+                if (dict.TryGetValue("baseUrl", out string bu)) cred.BaseUrl = bu;
+                if (dict.TryGetValue("apiKey", out string ak)) cred.ApiKey = ak;
+                if (dict.TryGetValue("modelNames", out string mnsJson))
+                    cred.ModelNames = JsonParser.ParseStringArray(mnsJson)?.ToList() ?? new List<string>();
+                if (dict.TryGetValue("providerType", out string pt)
+                    && Enum.TryParse<LlmProviderType>(pt, out var pType))
+                    cred.ProviderType = pType;
+                if (dict.TryGetValue("timeoutSeconds", out string ts)
+                    && int.TryParse(ts, out var tsVal))
+                    cred.TimeoutSeconds = tsVal;
+                if (dict.TryGetValue("modelsEndpoint", out string me))
+                    cred.ModelsEndpoint = me;
+                if (dict.TryGetValue("chatEndpoint", out string ce))
+                    cred.ChatEndpoint = ce;
+            }
+            catch
+            {
+                // 解析失败，保持默认值
+            }
+
+            return cred;
         }
     }
 }

@@ -33,18 +33,17 @@ namespace NPCLife.Framework.Llm
 
         /// <summary>
         /// 验证消息列表的结构完整性。
+        /// 注意：不限制 system 消息位置，OpenAI API 接受任意位置的 system 消息，
+        /// 具体语义由各 provider 决定。仅校验 API 强约束（工具调用配对）。
         /// </summary>
         public static ValidationResult Validate(IReadOnlyList<LlmMessage> messages)
         {
             if (messages == null || messages.Count == 0)
                 return ValidationResult.Fail("Transcript is empty");
 
-            // Rule 1: system 消息只能出现在 index 0
-            for (int i = 1; i < messages.Count; i++)
-            {
-                if (messages[i].Role == "system")
-                    return ValidationResult.Fail($"Unexpected system message at index {i}");
-            }
+            // Rule 1（已移除）: 原限制 system 只能在 index 0。
+            // OpenAI API 未强制此约束，且拦截器可能需要在对话中途注入系统级指令。
+            // 若特定 provider 有此限制，应由其 adapter 层自行处理。
 
             // 扫描 assistant 消息并校验 tool_calls 配对
             for (int i = 0; i < messages.Count; i++)

@@ -1,4 +1,5 @@
 using NPCLife.Framework.Script;
+using System;
 using System.Collections.Generic;
 
 namespace NPCLife.Workspace
@@ -154,5 +155,16 @@ namespace NPCLife.Workspace
         /// {"cred":"primary","model":"gpt-4o"}。
         /// 通过名称匹配而非整数索引，避免列表变化时失对齐。</summary>
         public string CurrentModel;
+
+        // ---- 延迟激活（防抖动，不持久化） ----
+
+        /// <summary>事件池已达激活阈值但尚未触发（等待 debounce 期满）。不持久化。</summary>
+        [System.NonSerialized]
+        public bool ThresholdReached;
+
+        /// <summary>阈值首次/最后达到时的 UTC 时间。每次新事件到达时刷新，
+        /// 用于计算 debounce 是否期满。不持久化。</summary>
+        [System.NonSerialized]
+        public DateTime ThresholdReachedAt;
     }
 }

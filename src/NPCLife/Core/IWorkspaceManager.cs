@@ -44,6 +44,12 @@ namespace NPCLife.Core
         /// <summary>设置工作空间的导演留言（简介）。由适配层在初始化时调用。</summary>
         void SetDirectorMessage(string id, string message);
 
+        /// <summary>
+        /// 设置工作空间的当前选中模型。
+        /// modelJson 格式: {"cred":"凭证名","model":"模型名"}。
+        /// </summary>
+        void SetCurrentModel(string workspaceId, string modelJson);
+
         // --- 结构操作（2 方法） ---
 
         /// <summary>从父工作空间分支。</summary>
