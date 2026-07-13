@@ -55,9 +55,9 @@ namespace NPCLife.Infrastructure
             return new MetricsInterceptor(role);
         }
 
-        public IAgentOrchestrator CreateAgentOrchestrator(IWorkspaceManager manager)
+        public IAgentOrchestrator CreateAgentOrchestrator(IWorkspaceManager manager, AgentLoopDependencies sharedDeps)
         {
-            return new AgentOrchestrator(manager);
+            return new AgentOrchestrator(manager, sharedDeps);
         }
 
         // ================================================================

@@ -1,3 +1,4 @@
+using NPCLife.Agent;
 using NPCLife.Core;
 using NPCLife.Driver;
 using NPCLife.Framework;
@@ -42,9 +43,11 @@ namespace NPCLife.Core
 
         /// <summary>
         /// 创建 Agent 编排器。管理所有 Agent 的创建、缓存、生命周期。
-        /// 游戏侧通过 AgentOrchestrator.Register 注入 Agent 工厂委托。
+        /// 游戏侧通过 AgentOrchestrator.Register 注入 AgentConfigFactory 委托。
         /// </summary>
-        IAgentOrchestrator CreateAgentOrchestrator(IWorkspaceManager manager);
+        /// <param name="manager">工作空间管理器。</param>
+        /// <param name="sharedDeps">全局基础设施依赖（LLM 服务、凭证、日志等），所有 Agent 共享。</param>
+        IAgentOrchestrator CreateAgentOrchestrator(IWorkspaceManager manager, AgentLoopDependencies sharedDeps);
 
         // ================================================================
         // 基础设施服务（单例，委托到静态类）

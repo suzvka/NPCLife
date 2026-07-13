@@ -41,7 +41,7 @@ namespace NPCLife.Agent
     /// 运行时采用显式状态机，以 SemaphoreSlim 防重入，
     /// CancellationToken 贯穿整条链路，失败路径统一。
     /// </summary>
-    public class AgentLoop : IDisposable
+    internal class AgentLoop : IAgentLoop, IDisposable
     {
         private readonly IWorkspace _workspace;
         private readonly IEventLog _pool;

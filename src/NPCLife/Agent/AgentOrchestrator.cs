@@ -15,10 +15,11 @@ namespace NPCLife.Agent
     public class AgentOrchestrator : IAgentOrchestrator
     {
         private readonly IWorkspaceManager _workspaces;
+        private readonly AgentLoopDependencies _sharedDeps;
 
         // 注册的工厂委托，按角色索引
-        private readonly Dictionary<WorkspaceRole, AgentFactory> _factories
-            = new Dictionary<WorkspaceRole, AgentFactory>();
+        private readonly Dictionary<WorkspaceRole, AgentConfigFactory> _factories
+            = new Dictionary<WorkspaceRole, AgentConfigFactory>();
 
         // 按角色缓存的 Agent（Director / Improviser）
         private readonly Dictionary<WorkspaceRole, AgentLoop> _roleAgents
@@ -30,20 +31,27 @@ namespace NPCLife.Agent
             = new Dictionary<string, AgentLoop>();
         private readonly object _wsLock = new object();
 
-        public AgentOrchestrator(IWorkspaceManager workspaces)
+        /// <summary>
+        /// 创建 Agent 编排器。
+        /// </summary>
+        /// <param name="workspaces">工作空间管理器。</param>
+        /// <param name="sharedDeps">全局基础设施依赖（LLM 服务、凭证、日志等）。
+        /// 所有 Agent 共享此依赖集，per-role 覆盖通过 <see cref="AgentConfig"/> 提供。</param>
+        public AgentOrchestrator(IWorkspaceManager workspaces, AgentLoopDependencies sharedDeps)
         {
             _workspaces = workspaces ?? throw new ArgumentNullException(nameof(workspaces));
+            _sharedDeps = sharedDeps;
         }
 
         // ================================================================
         // 注册
         // ================================================================
 
-        public void Register(WorkspaceRole role, AgentFactory factory)
+        public void Register(WorkspaceRole role, AgentConfigFactory factory)
         {
             if (factory == null) throw new ArgumentNullException(nameof(factory));
             if (_factories.ContainsKey(role))
-                throw new InvalidOperationException($"AgentFactory for role '{role}' is already registered.");
+                throw new InvalidOperationException($"AgentConfigFactory for role '{role}' is already registered.");
             _factories[role] = factory;
         }
 
@@ -66,7 +74,7 @@ namespace NPCLife.Agent
         // Agent 获取（角色维度）
         // ================================================================
 
-        public AgentLoop GetAgent(WorkspaceRole role)
+        public IAgentLoop GetAgent(WorkspaceRole role)
         {
             // 快速路径：已缓存
             lock (_roleLock)
@@ -81,8 +89,10 @@ namespace NPCLife.Agent
             var ws = GetOrCreateWorkspace(role);
             if (ws == null) return null;
 
-            var agent = factory(ws, _workspaces);
-            if (agent == null) return null;
+            var config = factory(ws, _workspaces);
+            if (config == null) return null;
+
+            var agent = BuildAgent(ws, config);
 
             lock (_roleLock)
             {
@@ -101,7 +111,7 @@ namespace NPCLife.Agent
         // Agent 获取（工作空间维度）
         // ================================================================
 
-        public AgentLoop GetAgent(string workspaceId)
+        public IAgentLoop GetAgent(string workspaceId)
         {
             if (string.IsNullOrEmpty(workspaceId)) return null;
 
@@ -118,8 +128,10 @@ namespace NPCLife.Agent
             if (!_factories.TryGetValue(ws.CreatedByRole, out var factory))
                 return null;
 
-            var agent = factory(ws, _workspaces);
-            if (agent == null) return null;
+            var config = factory(ws, _workspaces);
+            if (config == null) return null;
+
+            var agent = BuildAgent(ws, config);
 
             lock (_wsLock)
             {
@@ -153,6 +165,25 @@ namespace NPCLife.Agent
                     GetAgent(workspaceId);
                     break;
             }
+        }
+
+        // ================================================================
+        // 内部 Agent 构造
+        // ================================================================
+
+        /// <summary>
+        /// 根据共享依赖和 per-role 配置构造 AgentLoop。
+        /// config 中的可选项（MaxRounds、Serializer）覆盖 sharedDeps 的默认值。
+        /// </summary>
+        private AgentLoop BuildAgent(IWorkspace ws, AgentConfig config)
+        {
+            var deps = _sharedDeps; // struct 值拷贝
+            if (config.MaxRounds.HasValue)
+                deps.MaxRounds = config.MaxRounds.Value;
+            if (config.Serializer != null)
+                deps.Serializer = config.Serializer;
+
+            return new AgentLoop(ws, deps, config.PromptBuilder);
         }
 
         // ================================================================
