@@ -35,8 +35,7 @@ namespace NPCLife.Skills
         public IReadOnlyList<McpTool> GetTools()
         {
             return McpTool.ScanAllFrom(this)
-                .Where(t => t.Definition.Name != "list_skills"
-                         && t.Definition.Name != "route_events")
+                .Where(t => t.Definition.Name != "list_skills")
                 .ToList();
         }
 

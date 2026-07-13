@@ -44,7 +44,8 @@ namespace NPCLife.Skills
                 McpTool.FromMethod(typeof(WritingMcpProvider).GetMethod(nameof(PushNarration)), this),
                 McpTool.FromMethod(typeof(WritingMcpProvider).GetMethod(nameof(PushAction)), this),
                 McpTool.FromMethod(typeof(WritingMcpProvider).GetMethod(nameof(PushPause)), this),
-                McpTool.FromMethod(typeof(WritingMcpProvider).GetMethod(nameof(RouteEvents)), this),
+                // route_events 已统一收归 system skill
+                //McpTool.FromMethod(typeof(WritingMcpProvider).GetMethod(nameof(RouteEvents)), this),
                 McpTool.FromMethod(typeof(WritingMcpProvider).GetMethod(nameof(FinishRound)), this),
             };
         }

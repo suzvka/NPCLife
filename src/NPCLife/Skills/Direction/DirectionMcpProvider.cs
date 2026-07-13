@@ -41,7 +41,8 @@ namespace NPCLife.Skills
             {
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(CreateWorkspace)), this),
                 McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(CreateEvent)), this),
-                McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(RouteEvents)), this),
+                // route_events 已统一收归 system skill
+                //McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(RouteEvents)), this),
                 // list_storyline 和 get_storyline 已移至 Director 上下文注入
                 // （BuildDirectorWorkspaceSummary），不再作为 MCP 工具提供
                 //McpTool.FromMethod(typeof(DirectionMcpProvider).GetMethod(nameof(ListWorkspaces)), this),

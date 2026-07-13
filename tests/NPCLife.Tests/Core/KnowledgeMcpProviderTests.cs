@@ -37,7 +37,7 @@ namespace NPCLife.Tests.Core
         {
             var provider = CreateProvider(out _);
             Assert.Equal("knowledge_management", provider.HookId);
-            Assert.Equal(5, provider.GetTools().Count);
+            Assert.Equal(2, provider.GetTools().Count); // LookupTerm + LearnTerm
         }
 
         // ================================================================
@@ -119,65 +119,8 @@ namespace NPCLife.Tests.Core
         }
 
         // ================================================================
-        // ListKnownTerms
+        // ListKnownTerms — removed in v1.1; listing is now a host-side concern.
+        // If re-added as an MCP tool, reinstate the tests below.
         // ================================================================
-
-        [Fact]
-        public void ListKnownTerms_Empty_ReturnsEmptyArray()
-        {
-            var provider = CreateProvider(out _);
-            var result = provider.ListKnownTerms();
-            Assert.Equal("[]", result);
-        }
-
-        [Fact]
-        public void ListKnownTerms_WithEntries_ReturnsSummary()
-        {
-            var provider = CreateProvider(out var kb);
-            kb.Store(new KnowledgeEntry
-            {
-                Term = "Raid", Definition = "An attack event", Source = "Test"
-            });
-
-            var result = provider.ListKnownTerms();
-            Assert.Contains("\"term\":\"Raid\"", result);
-            Assert.Contains("definitionPreview", result);
-        }
-
-        [Fact]
-        public void ListKnownTerms_PrefixFilter_Works()
-        {
-            var provider = CreateProvider(out var kb);
-            kb.Store(new KnowledgeEntry
-            {
-                Term = "Apple", Definition = "fruit", Source = "Test"
-            });
-            kb.Store(new KnowledgeEntry
-            {
-                Term = "Banana", Definition = "fruit", Source = "Test"
-            });
-
-            var result = provider.ListKnownTerms(prefix: "A");
-            Assert.Contains("Apple", result);
-            Assert.DoesNotContain("Banana", result);
-        }
-
-        [Fact]
-        public void ListKnownTerms_Limit_Respected()
-        {
-            var provider = CreateProvider(out var kb);
-            for (int i = 0; i < 10; i++)
-                kb.Store(new KnowledgeEntry
-                {
-                    Term = $"Term{i}", Definition = "def", Source = "Test"
-                });
-
-            var result = provider.ListKnownTerms(limit: 3);
-            // Should contain at most 3 term entries
-            int count = 0;
-            int idx = 0;
-            while ((idx = result.IndexOf("\"term\"", idx)) >= 0) { count++; idx++; }
-            Assert.Equal(3, count);
-        }
     }
 }

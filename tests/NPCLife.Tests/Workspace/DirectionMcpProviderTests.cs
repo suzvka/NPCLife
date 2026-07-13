@@ -48,7 +48,7 @@ namespace NPCLife.Tests.WorkspaceTests
                 var provider = new DirectionMcpProvider(() => manager, logger);
 
                 var result = provider.CreateEvent(
-                    targetWorkspaceId: writerWs.Id,
+                    targetLabel: writerWs.Label,
                     defName: "DirectorBeat_TestEvent",
                     description: "A mysterious figure arrives at the colony gates.",
                     importance: 3.0,
@@ -90,7 +90,7 @@ namespace NPCLife.Tests.WorkspaceTests
                 var provider = new DirectionMcpProvider(() => manager, logger);
 
                 var result = provider.CreateEvent(
-                    targetWorkspaceId: writerWs.Id,
+                    targetLabel: writerWs.Label,
                     defName: "DirectorBeat_Minimal",
                     description: "Something happens.");
 
@@ -114,7 +114,7 @@ namespace NPCLife.Tests.WorkspaceTests
                 var provider = new DirectionMcpProvider(() => manager, logger);
 
                 var result = provider.CreateEvent(
-                    targetWorkspaceId: "nonexistent",
+                    targetLabel: "nonexistent",
                     defName: "DirectorBeat_Ghost",
                     description: "No target.");
 
@@ -135,12 +135,14 @@ namespace NPCLife.Tests.WorkspaceTests
                 var provider = new DirectionMcpProvider(() => manager, logger);
 
                 var result = provider.CreateEvent(
-                    targetWorkspaceId: writerWs.Id,
+                    targetLabel: writerWs.Label,
                     defName: "DirectorBeat_Late",
                     description: "Too late.");
 
+                // v1.1: FindWorkspaceByLabel only searches Active workspaces,
+                // so a Completed workspace is treated as "not found"
                 Assert.Contains("\"success\":false", result);
-                Assert.Contains("not Active", result);
+                Assert.Contains("not found", result);
             }
         }
 
@@ -151,7 +153,7 @@ namespace NPCLife.Tests.WorkspaceTests
             var provider = new DirectionMcpProvider(() => null, logger);
 
             var result = provider.CreateEvent(
-                targetWorkspaceId: "any",
+                targetLabel: "any",
                 defName: "DirectorBeat_NoManager",
                 description: "No manager.");
 
@@ -169,8 +171,8 @@ namespace NPCLife.Tests.WorkspaceTests
                 var writerWs = manager.Create("MultiLine", WorkspaceRole.Screenwriter);
                 var provider = new DirectionMcpProvider(() => manager, logger);
 
-                provider.CreateEvent(writerWs.Id, "DirectorBeat_First", "First event.", 2.0);
-                provider.CreateEvent(writerWs.Id, "DirectorBeat_Second", "Second event.", 4.0);
+                provider.CreateEvent(writerWs.Label, "DirectorBeat_First", "First event.", 2.0);
+                provider.CreateEvent(writerWs.Label, "DirectorBeat_Second", "Second event.", 4.0);
 
                 Assert.Equal(2, writerWs.EventPool.PendingCount);
                 Assert.Equal(6f, writerWs.EventPool.TotalImportance);
@@ -195,7 +197,7 @@ namespace NPCLife.Tests.WorkspaceTests
                 var provider = new DirectionMcpProvider(() => manager, logger);
 
                 provider.CreateEvent(
-                    writerWs.Id,
+                    writerWs.Label,
                     "DirectorBeat_ActorTest",
                     "Testing actors.",
                     actorIds: "pawn_hero,pawn_villain");

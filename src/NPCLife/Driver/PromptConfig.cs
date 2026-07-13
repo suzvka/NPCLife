@@ -5,9 +5,11 @@ using System.Text;
 namespace NPCLife.Driver
 {
     /// <summary>
-    /// 默认系统提示词提供者。三个角色的基础身份以 EmbeddedResource 形式打包在 NPCLife 中，
-    /// 对外暴露为不可变的静态只读字符串。游戏侧（如 RimLife）只能在此基础上追加指令，
-    /// 禁止覆盖这些基座身份。
+    /// 角色身份提示词资源加载器。从 EmbeddedResource 中读取原始 .txt 文本。
+    /// 
+    /// 框架已内置三个角色身份 Skill（role_director / role_screenwriter / role_improviser），
+    /// 它们通过 Skill 系统自动激活并注入 system prompt。此类仅作为资源加载的内部支撑，
+    /// 供 RoleProvider 使用。宿主通常无需直接调用。
     /// </summary>
     public static class PromptConfig
     {

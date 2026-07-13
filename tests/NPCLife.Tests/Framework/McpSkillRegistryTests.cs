@@ -56,6 +56,9 @@ namespace NPCLife.Tests.Framework
         public void InitializeDefaults_CreatesSixBusinessSkills()
         {
             McpSkillRegistry.InitializeDefaults();
+            // 6 skills: 3 role identity + 3 tool skills
+            // role_director, role_screenwriter, role_improviser,
+            // knowledge_management, storyline_direction, storyline_writing
             Assert.Equal(6, McpSkillRegistry.SkillCount);
         }
 
@@ -64,9 +67,9 @@ namespace NPCLife.Tests.Framework
         {
             McpSkillRegistry.InitializeDefaults();
             var ids = McpSkillRegistry.GetAllSkillIds();
-            Assert.Contains("colony_overview", ids);
-            Assert.Contains("character_query", ids);
-            Assert.Contains("relationship_query", ids);
+            Assert.Contains("role_director", ids);
+            Assert.Contains("role_screenwriter", ids);
+            Assert.Contains("role_improviser", ids);
             Assert.Contains("knowledge_management", ids);
             Assert.Contains("storyline_direction", ids);
             Assert.Contains("storyline_writing", ids);

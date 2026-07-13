@@ -48,14 +48,12 @@ namespace NPCLife.Agent
         private readonly ILlmService _llm;
         private readonly ICredentialStore _credentialStore;
         private readonly ILogger _logger;
-        private readonly string _systemPrompt;
-        private readonly string[] _defaultSkillIds;
+        private readonly IPromptBuilder _promptBuilder;
         private readonly int _maxRounds;
         private readonly ICardSerializer _serializer;
         private readonly Action _unsubscribe; // 取消事件订阅的委托
-        private readonly Func<string> _contextProvider;
-        private readonly Func<List<LlmMessage>> _preQueriedProvider;
         private string _currentModelName;
+        private string _currentToolsJson; // 从 Build 结果缓存的工具 JSON
         private volatile AgentRunState _state = AgentRunState.Idle;
         private readonly SemaphoreSlim _gate = new SemaphoreSlim(1, 1);
         private readonly CancellationTokenSource _disposeCts = new CancellationTokenSource();
@@ -73,61 +71,38 @@ namespace NPCLife.Agent
         /// </summary>
         /// <param name="workspace">绑定的工作空间。Agent 从 ws.EventPool drain 事件，从 ws.SkillSlot 获取工具集，从 ws.ModelRefs 解析凭证。</param>
         /// <param name="deps">基础设施依赖（LLM 服务、凭证、日志等）与行为配置（最大轮数、温度）。由宿主统一注入。</param>
-        /// <param name="systemPrompt">系统提示词。由宿主根据角色 + 游戏附加指令构建。</param>
-        /// <param name="contextProvider">动态上下文提供者（可选）。每次激活时调用，返回值追加到用户消息末尾。</param>
+        /// <param name="promptBuilder">系统提示词构建器。框架默认通过 PromptBlockRegistry 聚合 PromptBlock。宿主可提供自定义实现。</param>
         public AgentLoop(
             IWorkspace workspace,
             AgentLoopDependencies deps,
-            string systemPrompt,
-            Func<string> contextProvider = null,
-            Func<List<LlmMessage>> preQueriedProvider = null)
+            IPromptBuilder promptBuilder = null)
         {
             _workspace = workspace ?? throw new ArgumentNullException(nameof(workspace));
             _pool = workspace.EventPool ?? throw new ArgumentException("workspace.EventPool is null", nameof(workspace));
             _llm = deps.Llm ?? throw new ArgumentNullException(nameof(deps.Llm));
             _credentialStore = deps.CredentialStore ?? throw new ArgumentNullException(nameof(deps.CredentialStore));
             _logger = deps.Logger ?? throw new ArgumentNullException(nameof(deps.Logger));
-            _systemPrompt = systemPrompt ?? "";
-            _defaultSkillIds = DeriveSkillIds(workspace);
+            _promptBuilder = promptBuilder ?? new DefaultPromptBuilder();
             _maxRounds = deps.MaxRounds > 0 ? deps.MaxRounds : 10;
             _serializer = deps.Serializer ?? CardSerializer.Default;
-            _contextProvider = contextProvider;
-            _preQueriedProvider = preQueriedProvider;
             _pool.OnThresholdReached += OnPoolChanged;
             _unsubscribe = () => _pool.OnThresholdReached -= OnPoolChanged;
         }
 
-        /// <summary>
-        /// 从工作空间的 SkillSlot 提取活跃技能 ID 列表。
-        /// 工作空间创建时已按角色注册了默认技能集（SkillCatalog），此处直接读取。
-        /// </summary>
-        private static string[] DeriveSkillIds(IWorkspace ws)
-        {
-            var activeIds = ws.SkillSlot?.ActiveSkillIds;
-            if (activeIds != null && activeIds.Count > 0)
-                return activeIds.ToArray();
-
-            // 回退：使用角色默认技能配置
-            var defaults = SkillCatalog.GetDefaultSkillIds(ws.CreatedByRole);
-            return defaults?.ToArray() ?? Array.Empty<string>();
-        }
+        // ================================================================
+        // 唯一入口
+        // ================================================================
 
         /// <summary>
-        /// 动态获取当前激活的技能 ID 列表。
-        /// 优先从工作空间的 SkillSlot 读取（反映 activate_skill/deactivate_skill 的实时状态），
-        /// 回退到构造时的默认技能列表。
+        /// 动态获取当前激活的技能 ID 列表（用于工具调用执行）。
         /// </summary>
         private string[] GetActiveSkillIds()
         {
             var activeIds = _workspace.SkillSlot?.ActiveSkillIds;
             if (activeIds != null && activeIds.Count > 0)
                 return activeIds.ToArray();
-            return _defaultSkillIds;
+            return Array.Empty<string>();
         }
-
-        // ================================================================
-        // 唯一入口
-        // ================================================================
 
         private void OnPoolChanged()
         {
@@ -217,28 +192,18 @@ namespace NPCLife.Agent
                 };
                 AgentPipeline.RunBeforePrompt(promptCtx);
 
-                if (_messages == null || _messages.Count == 0)
+                var buildResult = _promptBuilder.Build(_workspace, _drained);
+                _currentToolsJson = buildResult.ToolsJson ?? "[]";
+
+                _messages = new List<LlmMessage>
                 {
-                    // 首次激活：构建初始消息
-                    _messages = new List<LlmMessage>
-                    {
-                        LlmMessage.System(_systemPrompt),
-                        LlmMessage.User(promptCtx.UserMessage),
-                    };
-                
-                    // 注入预查询工具调用链（伪装为 LLM 已完成信息收集）
-                    var preQueried = _preQueriedProvider?.Invoke();
-                    if (preQueried != null && preQueried.Count > 0)
-                        _messages.AddRange(preQueried);
-                }
-                else
-                {
-                    _messages = new List<LlmMessage>
-                    {
-                        LlmMessage.System(_systemPrompt),
-                        LlmMessage.User(promptCtx.UserMessage)
-                    };
-                }
+                    LlmMessage.System(buildResult.SystemPrompt),
+                };
+                if (buildResult.PrimingMessages != null && buildResult.PrimingMessages.Count > 0)
+                    _messages.AddRange(buildResult.PrimingMessages);
+                _messages.Add(LlmMessage.User(promptCtx.UserMessage));
+                if (buildResult.PreQueriedMessages != null && buildResult.PreQueriedMessages.Count > 0)
+                    _messages.AddRange(buildResult.PreQueriedMessages);
 
                 // 解析凭证：仅使用当前选中模型，不进行回退
                 var credentials = ResolveCredentials();
@@ -523,12 +488,8 @@ namespace NPCLife.Agent
             return new LlmRequest
             {
                 Model = _currentModelName ?? "",
-                // 传递 _messages 引用而非拷贝，使拦截器（如 RoundTwoWarningInterceptor）
-                // 通过 ctx.Request.Messages.Add() 注入的消息能持久化到 _messages。
-                // 否则注入的消息在下一轮 BuildLlmRequest 时因拷贝而丢失，
-                // 导致 LLM 无法看到累积的警告历史。
                 Messages = _messages,
-                ToolsJson = McpSkillRegistry.GetActiveToolsJson(GetActiveSkillIds())
+                ToolsJson = _currentToolsJson ?? "[]"
             };
         }
 
@@ -543,12 +504,6 @@ namespace NPCLife.Agent
             sb.AppendLine("## 待处理事件");
             sb.AppendLine();
             sb.AppendLine(_serializer.SerializeEventList(events));
-
-            if (_contextProvider != null)
-            {
-                sb.AppendLine();
-                sb.AppendLine(_contextProvider());
-            }
 
             return sb.ToString();
         }

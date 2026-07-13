@@ -159,15 +159,15 @@ namespace NPCLife.Tests.Framework
         }
 
         // ================================================================
-        // Schema 一致性 — GetFormatSpec ↔ Parse
+        // Schema 一致性 — GetFormatSpec removed in v1.1 (now Schema-driven).
+        // If re-added as public API, reinstate these tests.
         // ================================================================
-
+        /*
         [Fact]
         public void GetFormatSpec_ContainsAllFieldKeys()
         {
             var spec = ScriptFormat.GetFormatSpec();
 
-            // Schema 中所有 JsonKey 都出现在提示词中
             Assert.Contains("\"s\"", spec);
             Assert.Contains("\"t\"", spec);
             Assert.Contains("\"d\"", spec);
@@ -200,7 +200,6 @@ namespace NPCLife.Tests.Framework
         {
             var spec = ScriptFormat.GetFormatSpec();
 
-            // t 字段标记为必需
             Assert.Contains("必需", spec);
         }
 
@@ -215,9 +214,10 @@ namespace NPCLife.Tests.Framework
             Assert.Contains("narration", spec);
             Assert.Contains("action", spec);
         }
+        */
 
         // ================================================================
-        // Round-trip — Parse 能正确解析 GetFormatSpec 示例格式
+        // Round-trip — Parse 验证
         // ================================================================
 
         [Fact]

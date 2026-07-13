@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using NPCLife.Framework.PromptBlocks;
 using NPCLife.Workspace;
 
 namespace NPCLife.Framework.Mcp
@@ -180,6 +181,10 @@ namespace NPCLife.Framework.Mcp
                             count++;
                     }
                 }
+
+                // 联动：同时注册到 PromptBlockRegistry
+                PromptBlockRegistry.RegisterLinkedFromProvider(provider);
+
                 return count;
             }
         }
