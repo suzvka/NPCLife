@@ -1,3 +1,4 @@
+using NPCLife.Framework;
 using NPCLife.Framework.Mcp;
 using System;
 using System.Collections.Generic;
@@ -16,6 +17,9 @@ namespace NPCLife.Framework.PromptBlocks
     /// </summary>
     public static class PromptBlockRegistry
     {
+        /// <summary>日志接口。由宿主层注入，未设置时静默跳过。</summary>
+        public static ILogger Logger;
+
         private static readonly List<IPromptBlock> _globalBlocks = new List<IPromptBlock>();
         private static readonly Dictionary<string, List<IPromptBlock>> _linkedBlocks
             = new Dictionary<string, List<IPromptBlock>>(StringComparer.OrdinalIgnoreCase);
@@ -57,7 +61,9 @@ namespace NPCLife.Framework.PromptBlocks
         internal static void RegisterLinkedFromProvider(IMcpHookProvider provider)
         {
             if (provider == null) return;
-            RegisterLinked(provider.HookId, new SkillPromptBlock(provider));
+            var block = new SkillPromptBlock(provider);
+            RegisterLinked(provider.HookId, block);
+            Logger?.Message($"[PromptBlockRegistry.DIAG] Registered SkillPromptBlock: skillId='{provider.HookId}', header='{provider.HookName}', hasText={!string.IsNullOrEmpty(provider.PromptInstruction)}, toolCount={block.GetTools().Count}");
         }
 
         /// <summary>
@@ -80,6 +86,7 @@ namespace NPCLife.Framework.PromptBlocks
                     }
                 }
 
+                Logger?.Message($"[PromptBlockRegistry.DIAG] GetActiveBlocks: globalBlocks={_globalBlocks.Count}, linkedKeys={_linkedBlocks.Count}, inputIds=[{string.Join(",", activeSkillIds ?? System.Array.Empty<string>())}], resultCount={result.Count}");
                 return result;
             }
         }

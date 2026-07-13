@@ -82,7 +82,8 @@ namespace NPCLife.Agent
             _llm = deps.Llm ?? throw new ArgumentNullException(nameof(deps.Llm));
             _credentialStore = deps.CredentialStore ?? throw new ArgumentNullException(nameof(deps.CredentialStore));
             _logger = deps.Logger ?? throw new ArgumentNullException(nameof(deps.Logger));
-            _promptBuilder = promptBuilder ?? new DefaultPromptBuilder();
+            _promptBuilder = promptBuilder ?? new DefaultPromptBuilder(_logger);
+            _logger.Message($"[NPCLife.Agent.DIAG] AgentLoop created: ws={workspace?.Id}, promptBuilder={(_promptBuilder is DefaultPromptBuilder ? "Default" : _promptBuilder?.GetType().Name ?? "null")}, loggerAvailable={_logger != null}");
             _maxRounds = deps.MaxRounds > 0 ? deps.MaxRounds : 10;
             _serializer = deps.Serializer ?? CardSerializer.Default;
             _pool.OnThresholdReached += OnPoolChanged;
@@ -194,6 +195,8 @@ namespace NPCLife.Agent
 
                 var buildResult = _promptBuilder.Build(_workspace, _drained);
                 _currentToolsJson = buildResult.ToolsJson ?? "[]";
+
+                _logger.Message($"[NPCLife.Agent.DIAG] Build result: systemPromptLen={buildResult.SystemPrompt?.Length ?? 0}, toolsJsonLen={_currentToolsJson.Length}, toolsPreview={(_currentToolsJson.Length > 150 ? _currentToolsJson.Substring(0, 150) : _currentToolsJson)}, primingMsgCount={buildResult.PrimingMessages?.Count ?? 0}, preQueriedMsgCount={buildResult.PreQueriedMessages?.Count ?? 0}");
 
                 _messages = new List<LlmMessage>
                 {

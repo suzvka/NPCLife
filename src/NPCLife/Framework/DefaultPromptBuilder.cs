@@ -4,6 +4,7 @@ using NPCLife.Framework.Llm;
 using NPCLife.Framework.Mcp;
 using NPCLife.Framework.PromptBlocks;
 using NPCLife.Workspace;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -21,10 +22,26 @@ namespace NPCLife.Framework
     /// </summary>
     public class DefaultPromptBuilder : IPromptBuilder
     {
+        private readonly ILogger _logger;
+
+        /// <param name="logger">可选日志接口，用于诊断输出。</param>
+        public DefaultPromptBuilder(ILogger logger = null)
+        {
+            _logger = logger;
+            // 让 PromptBlockRegistry 也能输出诊断日志（通过同一个 logger）
+            if (logger != null) PromptBlockRegistry.Logger = logger;
+        }
+
         public PromptBuildResult Build(IWorkspace workspace, IReadOnlyList<IGameEvent> events)
         {
+            // 构建有效技能 ID：system 技能始终隐式可用（不显示在 SkillSlot 中）
             var activeIds = workspace?.SkillSlot?.ActiveSkillIds;
-            var blocks = PromptBlockRegistry.GetActiveBlocks(activeIds);
+            var effectiveIds = new List<string> { McpSkillRegistry.SystemSkillId };
+            if (activeIds != null) effectiveIds.AddRange(activeIds);
+
+            _logger?.Message($"[DefaultPromptBuilder.DIAG] Querying PromptBlockRegistry: effectiveIds=[{string.Join(",", effectiveIds)}]");
+            var blocks = PromptBlockRegistry.GetActiveBlocks(effectiveIds);
+            _logger?.Message($"[DefaultPromptBuilder.DIAG] GetActiveBlocks returned {blocks.Count} blocks");
 
             var sb = new StringBuilder();
             var tools = new List<McpToolDefinition>();
@@ -53,6 +70,7 @@ namespace NPCLife.Framework
                 if (block is IToolProviderBlock toolBlock)
                 {
                     var blockTools = toolBlock.GetTools();
+                    _logger?.Message($"[DefaultPromptBuilder.DIAG] Block '{block.Id}': IToolProviderBlock, toolCount={blockTools?.Count ?? 0}");
                     if (blockTools != null && blockTools.Count > 0)
                         tools.AddRange(blockTools);
                 }
@@ -74,13 +92,16 @@ namespace NPCLife.Framework
                 }
             }
 
-            return new PromptBuildResult
+            var result = new PromptBuildResult
             {
                 SystemPrompt = sb.ToString(),
                 PrimingMessages = priming,
                 PreQueriedMessages = preQueried,
                 ToolsJson = SerializeTools(tools)
             };
+
+            _logger?.Message($"[DefaultPromptBuilder.DIAG] Build complete: blockCount={blocks.Count}, totalTools={tools.Count}, systemPromptLen={result.SystemPrompt.Length}, toolsJsonLen={result.ToolsJson.Length}");
+            return result;
         }
 
         private static string SerializeTools(List<McpToolDefinition> tools)
