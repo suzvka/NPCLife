@@ -1,3 +1,4 @@
+using NPCLife.Core;
 using NPCLife.Framework;
 using NPCLife.Framework.Mcp;
 using System;
@@ -63,7 +64,19 @@ namespace NPCLife.Framework.PromptBlocks
             if (provider == null) return;
             var block = new SkillPromptBlock(provider);
             RegisterLinked(provider.HookId, block);
-            Logger?.Message($"[PromptBlockRegistry.DIAG] Registered SkillPromptBlock: skillId='{provider.HookId}', header='{provider.HookName}', hasText={!string.IsNullOrEmpty(provider.PromptInstruction)}, toolCount={block.GetTools().Count}");
+            Logger?.Message($"[PromptBlockRegistry.DIAG] Registered SkillPromptBlock (legacy): skillId='{provider.HookId}', header='{provider.HookName}', hasText={!string.IsNullOrEmpty(provider.PromptInstruction)}");
+        }
+
+        /// <summary>
+        /// 从 ISkillModule 注册 SkillPromptBlock（推荐）。
+        /// 由 McpSkillRegistry.RegisterModule 联动调用。
+        /// </summary>
+        internal static void RegisterLinked(ISkillModule module)
+        {
+            if (module == null) return;
+            var block = new SkillPromptBlock(module);
+            RegisterLinked(module.Id, block);
+            Logger?.Message($"[PromptBlockRegistry.DIAG] Registered SkillPromptBlock: skillId='{module.Id}', header='{module.Name}', hasText={!string.IsNullOrEmpty(module.PromptInstruction)}");
         }
 
         /// <summary>

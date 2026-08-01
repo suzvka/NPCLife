@@ -6,6 +6,7 @@ using NPCLife.Workspace;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 
 namespace NPCLife.Skills
@@ -20,7 +21,7 @@ namespace NPCLife.Skills
         Name = "写作工具集",
         Description = "用于创作具体台词脚本的工具",
         DefaultRoles = new[] { WorkspaceRole.Screenwriter, WorkspaceRole.Improviser })]
-    public class WritingMcpProvider : IMcpHookProvider
+    public class WritingMcpProvider : IMcpHookProvider, ISkillModule
     {
         private readonly Func<IWorkspaceManager> _getWorkspaceManager;
         private readonly ILogger _logger;
@@ -31,10 +32,19 @@ namespace NPCLife.Skills
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        // IMcpHookProvider
         public string HookId => "storyline_writing";
         public string HookName => "写作工具集";
         public string HookDescription => "用于创作具体台词脚本的工具";
-                public string PromptInstruction => "写台词时注意口语化，技巧如下：\\n-- 遇到表示结束的标点符号就断句。\\n-- 一个自然的实现方式是，如果你想让角色说一段很长的话，那么就多断几句。\\n-- 我们预期此时收到连续多个的同一角色发言。";
+        public string PromptInstruction => "写台词时注意口语化，技巧如下：\\n-- 遇到表示结束的标点符号就断句。\\n-- 一个自然的实现方式是，如果你想让角色说一段很长的话，那么就多断几句。\\n-- 我们预期此时收到连续多个的同一角色发言。";
+
+        // ISkillModule
+        string ISkillModule.Id => HookId;
+        string ISkillModule.Name => HookName;
+        string ISkillModule.Description => HookDescription;
+        WorkspaceRole[] ISkillModule.DefaultRoles => GetType().GetCustomAttribute<SkillDefinitionAttribute>()?.DefaultRoles ?? Array.Empty<WorkspaceRole>();
+        string ISkillModule.PromptInstruction => PromptInstruction;
+        string ISkillModule.GetDynamicContext(IWorkspace workspace, IReadOnlyList<IGameEvent> events) => null;
 
         public IReadOnlyList<McpTool> GetTools()
         {

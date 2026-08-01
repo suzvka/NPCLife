@@ -1,3 +1,4 @@
+using NPCLife.Cards;
 using NPCLife.Core;
 using NPCLife.Framework;
 using NPCLife.Framework.Mcp;
@@ -5,6 +6,7 @@ using NPCLife.Workspace;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 
 namespace NPCLife.Skills
@@ -18,7 +20,7 @@ namespace NPCLife.Skills
         Name = "知识管理",
         Description = "词条查询、学习、列表、删除、统计",
         DefaultRoles = new[] { WorkspaceRole.Director, WorkspaceRole.Screenwriter, WorkspaceRole.Improviser })]
-    public class KnowledgeMcpProvider : IMcpHookProvider
+    public class KnowledgeMcpProvider : IMcpHookProvider, ISkillModule
     {
         private readonly Func<IKnowledgeService> _getKnowledgeService;
         private readonly ILogger _logger;
@@ -29,10 +31,19 @@ namespace NPCLife.Skills
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        // IMcpHookProvider
         public string HookId => "knowledge_management";
         public string HookName => "知识管理";
         public string HookDescription => "词条查询、学习、列举、删除、统计";
-                public string PromptInstruction => "知识库是储存静态概念的地方，禁止用游戏动态数据污染。一个判断依据：如果玩家连续游戏一个小时，你打算写入的词条是否依然有效？如果有失效风险，那么就不适合。";
+        public string PromptInstruction => "知识库是储存静态概念的地方，禁止用游戏动态数据污染。一个判断依据：如果玩家连续游戏一个小时，你打算写入的词条是否依然有效？如果有失效风险，那么就不适合。";
+
+        // ISkillModule
+        string ISkillModule.Id => HookId;
+        string ISkillModule.Name => HookName;
+        string ISkillModule.Description => HookDescription;
+        WorkspaceRole[] ISkillModule.DefaultRoles => GetType().GetCustomAttribute<SkillDefinitionAttribute>()?.DefaultRoles ?? Array.Empty<WorkspaceRole>();
+        string ISkillModule.PromptInstruction => PromptInstruction;
+        string ISkillModule.GetDynamicContext(IWorkspace workspace, IReadOnlyList<IGameEvent> events) => null;
 
         public IReadOnlyList<McpTool> GetTools()
         {

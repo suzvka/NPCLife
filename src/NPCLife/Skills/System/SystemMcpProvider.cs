@@ -2,6 +2,7 @@ using NPCLife.Cards;
 using NPCLife.Core;
 using NPCLife.Framework;
 using NPCLife.Framework.Mcp;
+using NPCLife.Workspace;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,10 +12,8 @@ namespace NPCLife.Skills
     /// <summary>
     /// 系统的 MCP 元工具集。提供 Skill 列表查询、激活、反激活能力。
     /// 属于 system skill，对所有 workspace 隐式可用。
-    /// 通过 IMcpHookProvider 接口注入依赖（WorkspaceManager + timeProvider + ILogger），
-    /// 通过接口注入依赖，零静态耦合。
     /// </summary>
-    public class SystemMcpProvider : IMcpHookProvider
+    public class SystemMcpProvider : IMcpHookProvider, ISkillModule
     {
         private readonly Func<IWorkspaceManager> _getWorkspaceManager;
         private readonly Func<string> _getTime;
@@ -27,10 +26,19 @@ namespace NPCLife.Skills
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        // IMcpHookProvider
         public string HookId => McpSkillRegistry.SystemSkillId;
         public string HookName => "系统";
         public string HookDescription => "系统元工具集（技能列表、激活、反激活、当前时间）";
-                public string PromptInstruction => null;
+        public string PromptInstruction => null;
+
+        // ISkillModule
+        string ISkillModule.Id => HookId;
+        string ISkillModule.Name => HookName;
+        string ISkillModule.Description => HookDescription;
+        WorkspaceRole[] ISkillModule.DefaultRoles => Array.Empty<WorkspaceRole>();
+        string ISkillModule.PromptInstruction => PromptInstruction;
+        string ISkillModule.GetDynamicContext(IWorkspace workspace, IReadOnlyList<IGameEvent> events) => null;
 
         public IReadOnlyList<McpTool> GetTools()
         {

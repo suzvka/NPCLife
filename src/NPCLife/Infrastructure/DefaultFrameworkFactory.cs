@@ -50,11 +50,6 @@ namespace NPCLife.Infrastructure
             return new BuiltInKnowledgeBase(store, logger);
         }
 
-        public IAgentInterceptor CreateMetricsInterceptor(AgentRole role)
-        {
-            return new MetricsInterceptor(role);
-        }
-
         public IAgentOrchestrator CreateAgentOrchestrator(IWorkspaceManager manager, AgentLoopDependencies sharedDeps)
         {
             return new AgentOrchestrator(manager, sharedDeps);
@@ -66,13 +61,11 @@ namespace NPCLife.Infrastructure
 
         private readonly IEventBus _events = new StaticEventBusAdapter();
         private readonly IMcpSkillRegistry _skills = new StaticMcpSkillRegistryAdapter();
-        private readonly IAgentPipeline _pipeline = new StaticAgentPipelineAdapter();
         private readonly IMetricsRecorder _metrics = new StaticMetricsRecorderAdapter();
         private readonly IFrameworkStatus _status = new StaticFrameworkStatusAdapter();
 
         public IEventBus Events => _events;
         public IMcpSkillRegistry Skills => _skills;
-        public IAgentPipeline Pipeline => _pipeline;
         public IMetricsRecorder Metrics => _metrics;
         public IFrameworkStatus Status => _status;
     }

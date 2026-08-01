@@ -21,6 +21,9 @@ namespace NPCLife.Framework.Mcp
         /// <summary>调用委托：接收 JSON 参数字符串，返回 JSON 结果字符串。</summary>
         public Func<string, string> Invoker;
 
+        /// <summary>该工具所属的 Skill ID。由 McpSkillRegistry.RegisterTool() 自动设置。</summary>
+        public string SourceSkillId;
+
         /// <summary>
         /// 从 MethodInfo 创建 McpTool。自动从方法签名生成 Definition，
         /// Invoker 委托到 McpToolInvoker。

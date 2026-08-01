@@ -8,7 +8,7 @@ using System;
 namespace NPCLife.Core
 {
     /// <summary>
-    /// 框架组件工厂接口。将 WorkspaceManager、BuiltInKnowledgeBase、MetricsInterceptor 等
+    /// 框架组件工厂接口。将 WorkspaceManager、BuiltInKnowledgeBase 等
     /// 具体类的创建抽象化，使宿主（如 RimLife）不直接依赖构造签名。
     /// 
     /// 框架内部重构（增删构造参数、替换实现类）不再影响宿主编译。
@@ -36,12 +36,6 @@ namespace NPCLife.Core
         IKnowledgeBase CreateKnowledgeBase(ICacheStore store, ILogger logger);
 
         /// <summary>
-        /// 创建度量拦截器。
-        /// </summary>
-        /// <param name="role">所属 Agent 角色。</param>
-        IAgentInterceptor CreateMetricsInterceptor(AgentRole role);
-
-        /// <summary>
         /// 创建 Agent 编排器。管理所有 Agent 的创建、缓存、生命周期。
         /// 游戏侧通过 AgentOrchestrator.Register 注入 AgentConfigFactory 委托。
         /// </summary>
@@ -58,9 +52,6 @@ namespace NPCLife.Core
 
         /// <summary>MCP 技能注册表。</summary>
         IMcpSkillRegistry Skills { get; }
-
-        /// <summary>Agent 管道拦截器管理器。</summary>
-        IAgentPipeline Pipeline { get; }
 
         /// <summary>运行时度量记录器。</summary>
         IMetricsRecorder Metrics { get; }

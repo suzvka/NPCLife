@@ -10,6 +10,10 @@ namespace NPCLife.Infrastructure
     {
         public void InitializeDefaults() => McpSkillRegistry.InitializeDefaults();
 
+        public int RegisterModule(ISkillModule module)
+            => McpSkillRegistry.RegisterModule(module);
+
+        [Obsolete]
         public int RegisterFromProvider(IMcpHookProvider provider)
             => McpSkillRegistry.RegisterFromProvider(provider);
 
@@ -21,6 +25,12 @@ namespace NPCLife.Infrastructure
 
         public string GetActiveToolsJson(IEnumerable<string> activeSkillIds)
             => McpSkillRegistry.GetActiveToolsJson(activeSkillIds);
+
+        public IReadOnlyList<McpTool> GetActiveTools(IEnumerable<string> activeSkillIds)
+            => McpSkillRegistry.GetActiveTools(activeSkillIds);
+
+        public IReadOnlyList<ISkillModule> GetActiveSkillModules(IEnumerable<string> activeSkillIds)
+            => McpSkillRegistry.GetActiveSkillModules(activeSkillIds);
 
         public IReadOnlyList<string> GetAllSkillIds()
             => McpSkillRegistry.GetAllSkillIds();

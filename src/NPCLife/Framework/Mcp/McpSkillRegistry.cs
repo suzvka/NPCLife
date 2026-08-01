@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using NPCLife.Core;
 using NPCLife.Framework.PromptBlocks;
 using NPCLife.Workspace;
 
@@ -41,6 +42,9 @@ namespace NPCLife.Framework.Mcp
         // skill → McpTool 列表
         private static readonly Dictionary<string, List<McpTool>> _skillTools = new(StringComparer.OrdinalIgnoreCase);
 
+        // skill → ISkillModule 实例（用于 GetDynamicContext）
+        private static readonly Dictionary<string, ISkillModule> _skillModules = new(StringComparer.OrdinalIgnoreCase);
+
         private static readonly object _lock = new();
 
         /// <summary>
@@ -78,6 +82,7 @@ namespace NPCLife.Framework.Mcp
             {
                 _skillMetas.Clear();
                 _skillTools.Clear();
+                _skillModules.Clear();
 
                 foreach (var skill in SkillCatalog.AllSkills)
                 {
@@ -103,6 +108,7 @@ namespace NPCLife.Framework.Mcp
 
         /// <summary>
         /// 注册 McpTool 到指定技能。同一工具名不会重复添加。
+        /// 自动设置 tool.SourceSkillId。
         /// 这是核心注册入口。
         /// </summary>
         public static bool RegisterTool(string skillId, McpTool tool)
@@ -120,6 +126,7 @@ namespace NPCLife.Framework.Mcp
                 // 按名称去重
                 if (!list.Any(t => string.Equals(t.Definition.Name, tool.Definition.Name, StringComparison.OrdinalIgnoreCase)))
                 {
+                    tool.SourceSkillId = skillId;
                     list.Add(tool);
                     return true;
                 }
@@ -158,32 +165,45 @@ namespace NPCLife.Framework.Mcp
         }
 
         /// <summary>
-        /// 从 Hook 提供者注册工具。自动创建/更新对应 Skill 元数据，
-        /// 并将提供者的工具注册到该 Skill 下。
+        /// 从 Hook 提供者注册工具。[Obsolete] 请使用 RegisterModule(ISkillModule) 替代。
         /// </summary>
-        /// <returns>成功注册的工具数。</returns>
+        [Obsolete("Use RegisterModule(ISkillModule) instead.")]
         public static int RegisterFromProvider(IMcpHookProvider provider)
         {
             if (provider == null) return 0;
+            return RegisterModule(new HookProviderModuleAdapter(provider));
+        }
+
+        /// <summary>
+        /// 从 ISkillModule 注册元数据和工具。这是推荐的注册入口。
+        /// 自动设置每个工具的 SourceSkillId，并联动 PromptBlockRegistry。
+        /// </summary>
+        /// <returns>成功注册的工具数。</returns>
+        public static int RegisterModule(ISkillModule module)
+        {
+            if (module == null) return 0;
 
             lock (_lock)
             {
                 // 确保 Skill 元数据存在（若已存在则覆盖 name/description/prompt）
-                RegisterSkill(provider.HookId, provider.HookName, provider.HookDescription, provider.PromptInstruction);
+                RegisterSkill(module.Id, module.Name, module.Description, module.PromptInstruction);
+
+                // 保存 ISkillModule 实例引用（用于 GetDynamicContext）
+                _skillModules[module.Id] = module;
 
                 int count = 0;
-                var tools = provider.GetTools();
+                var tools = module.GetTools();
                 if (tools != null)
                 {
                     foreach (var tool in tools)
                     {
-                        if (RegisterTool(provider.HookId, tool))
+                        if (RegisterTool(module.Id, tool))
                             count++;
                     }
                 }
 
                 // 联动：同时注册到 PromptBlockRegistry
-                PromptBlockRegistry.RegisterLinkedFromProvider(provider);
+                PromptBlockRegistry.RegisterLinked(module);
 
                 return count;
             }
@@ -257,24 +277,25 @@ namespace NPCLife.Framework.Mcp
         }
 
         /// <summary>
-        /// 获取激活工具定义 JSON 数组。system 技能的工具始终包含，然后合并传入的业务技能。
-        /// 用于构造发送给 LLM 的 prompt 中的 tools 字段。
+        /// 获取激活工具列表（内存对象）。system skill 工具始终包含且优先，
+        /// 然后合并传入的业务技能。按 Definition.Name 去重，system 优先。
+        /// 推荐使用此方法进行工具操作，最后一次性序列化为 JSON。
         /// </summary>
         /// <param name="activeSkillIds">当前激活的业务 skill ID 集合。</param>
-        public static string GetActiveToolsJson(IEnumerable<string> activeSkillIds)
+        public static IReadOnlyList<McpTool> GetActiveTools(IEnumerable<string> activeSkillIds)
         {
             lock (_lock)
             {
-                var jsons = new List<string>();
+                var merged = new Dictionary<string, McpTool>(StringComparer.OrdinalIgnoreCase);
 
-                // system 技能始终可用
+                // system 技能始终可用，优先加入
                 if (_skillTools.TryGetValue(SystemSkillId, out var sysTools))
                 {
                     foreach (var tool in sysTools)
-                        jsons.Add(McpToolGenerator.Serialize(tool.Definition));
+                        merged[tool.Definition.Name] = tool;
                 }
 
-                // 传入的业务技能
+                // 传入的业务技能（不覆盖已存在的 system 工具）
                 if (activeSkillIds != null)
                 {
                     foreach (var skillId in activeSkillIds)
@@ -283,22 +304,36 @@ namespace NPCLife.Framework.Mcp
                         if (_skillTools.TryGetValue(skillId, out var tools))
                         {
                             foreach (var tool in tools)
-                                jsons.Add(McpToolGenerator.Serialize(tool.Definition));
+                            {
+                                if (!merged.ContainsKey(tool.Definition.Name))
+                                    merged[tool.Definition.Name] = tool;
+                            }
                         }
                     }
                 }
 
-                if (jsons.Count == 0) return "[]";
-
-                var sb = new StringBuilder("[\n");
-                for (int i = 0; i < jsons.Count; i++)
-                {
-                    if (i > 0) sb.Append(",\n");
-                    sb.Append(jsons[i]);
-                }
-                sb.Append("\n]");
-                return sb.ToString();
+                return merged.Values.ToList();
             }
+        }
+
+        /// <summary>
+        /// 获取激活工具定义 JSON 数组。委托到 GetActiveTools()。
+        /// 用于构造发送给 LLM 的 prompt 中的 tools 字段。
+        /// </summary>
+        /// <param name="activeSkillIds">当前激活的业务 skill ID 集合。</param>
+        public static string GetActiveToolsJson(IEnumerable<string> activeSkillIds)
+        {
+            var tools = GetActiveTools(activeSkillIds);
+            if (tools.Count == 0) return "[]";
+
+            var sb = new StringBuilder("[\n");
+            for (int i = 0; i < tools.Count; i++)
+            {
+                if (i > 0) sb.Append(",\n");
+                sb.Append(McpToolGenerator.Serialize(tools[i].Definition));
+            }
+            sb.Append("\n]");
+            return sb.ToString();
         }
 
         /// <summary>
@@ -362,6 +397,28 @@ namespace NPCLife.Framework.Mcp
                     sb.AppendLine();
                 }
                 return sb.Length > 0 ? sb.ToString() : null;
+            }
+        }
+
+        /// <summary>
+        /// 获取激活技能的 ISkillModule 实例列表。
+        /// 用于 AgentLoop 收集动态上下文（GetDynamicContext）。
+        /// </summary>
+        public static IReadOnlyList<ISkillModule> GetActiveSkillModules(IEnumerable<string> activeSkillIds)
+        {
+            lock (_lock)
+            {
+                var result = new List<ISkillModule>();
+                if (activeSkillIds != null)
+                {
+                    foreach (var skillId in activeSkillIds)
+                    {
+                        if (string.IsNullOrEmpty(skillId)) continue;
+                        if (_skillModules.TryGetValue(skillId, out var module))
+                            result.Add(module);
+                    }
+                }
+                return result;
             }
         }
 

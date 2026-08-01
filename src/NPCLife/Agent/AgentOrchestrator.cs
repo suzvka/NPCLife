@@ -183,7 +183,7 @@ namespace NPCLife.Agent
             if (config.Serializer != null)
                 deps.Serializer = config.Serializer;
 
-            return new AgentLoop(ws, deps, config.PromptBuilder);
+            return new AgentLoop(ws, deps);
         }
 
         // ================================================================

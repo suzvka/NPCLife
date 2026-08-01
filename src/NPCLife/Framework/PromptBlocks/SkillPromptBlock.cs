@@ -1,50 +1,35 @@
+using NPCLife.Core;
 using NPCLife.Framework.Mcp;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace NPCLife.Framework.PromptBlocks
 {
     /// <summary>
-    /// Skill 提示词块。将 IMcpHookProvider 适配为 PromptBlock 体系。
-    /// 同时实现 ITextPromptBlock 和 IToolProviderBlock（可选 IToolPreQueryBlock）。
-    /// 
-    /// - PromptInstruction → ITextPromptBlock.GetContent()
-    /// - GetTools() → IToolProviderBlock.GetTools()（取 Definition 部分）
-    /// - 暂无 IToolPreQueryBlock（未来 Skill 可扩展）
+    /// Skill 提示词块。将 ISkillModule（或旧 IMcpHookProvider）适配为 PromptBlock 体系。
+    /// 仅实现 ITextPromptBlock —— 工具收集由 AgentLoop 通过 McpSkillRegistry 统一处理。
     /// </summary>
-    public class SkillPromptBlock : ITextPromptBlock, IToolProviderBlock
+    public class SkillPromptBlock : ITextPromptBlock
     {
+        private readonly ISkillModule _module;
         private readonly IMcpHookProvider _provider;
-        private IReadOnlyList<McpToolDefinition> _cachedTools;
 
-        /// <param name="provider">底层 MCP Hook 提供者。</param>
+        /// <param name="module">ISkillModule 实例（推荐）。</param>
+        public SkillPromptBlock(ISkillModule module)
+        {
+            _module = module ?? throw new ArgumentNullException(nameof(module));
+        }
+
+        /// <param name="provider">旧 IMcpHookProvider 实例（向后兼容）。</param>
+        [Obsolete("Use SkillPromptBlock(ISkillModule) instead.")]
         public SkillPromptBlock(IMcpHookProvider provider)
         {
             _provider = provider ?? throw new ArgumentNullException(nameof(provider));
         }
 
-        public string Id => _provider.HookId;
-        public string Header => _provider.HookName;
+        public string Id => _module?.Id ?? _provider?.HookId;
+        public string Header => _module?.Name ?? _provider?.HookName;
 
-        /// <summary>从 Provider 的 PromptInstruction 获取提示词文本。</summary>
-        public string GetContent() => _provider.PromptInstruction;
-
-        /// <summary>从 Provider 的 GetTools() 提取 McpToolDefinition 列表。</summary>
-        public IReadOnlyList<McpToolDefinition> GetTools()
-        {
-            if (_cachedTools != null) return _cachedTools;
-
-            var tools = _provider.GetTools();
-            if (tools == null || tools.Count == 0)
-            {
-                _cachedTools = Array.Empty<McpToolDefinition>();
-            }
-            else
-            {
-                _cachedTools = tools.Select(t => t.Definition).ToList();
-            }
-            return _cachedTools;
-        }
+        /// <summary>从模块的 PromptInstruction 获取提示词文本。</summary>
+        public string GetContent() => _module?.PromptInstruction ?? _provider?.PromptInstruction;
     }
 }

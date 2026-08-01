@@ -1,6 +1,9 @@
 using NPCLife.Core;
 using NPCLife.Framework;
+using NPCLife.Framework.Llm;
 using NPCLife.Framework.Mcp;
+using System;
+using System.Collections.Generic;
 
 namespace NPCLife.Agent
 {
@@ -24,6 +27,18 @@ namespace NPCLife.Agent
 
         /// <summary>Agent 多轮工具调用最大轮数（防死循环）。默认 10。</summary>
         public int MaxRounds;
+
+        /// <summary>
+        /// 轮间过渡消息回调。在每轮工具调用完成后、下一轮 LLM 请求前调用。
+        /// 参数为当前 round（1-based），返回要注入的消息列表。
+        /// 返回 null 或空列表表示不注入。null = 不启用此功能。
+        /// </summary>
+        public Func<int, IReadOnlyList<LlmMessage>> GetRoundTransitionMessages;
+
+        /// <summary>
+        /// 会话追踪录制器。null 时跳过所有录制调用（零开销）。
+        /// </summary>
+        public ISessionTraceRecorder TraceRecorder;
 
         /// <summary>
         /// 创建生产环境默认配置。宿主只需填充 Llm、CredentialStore、Logger 即可工作。

@@ -39,6 +39,15 @@ namespace NPCLife.Framework
             = new List<SessionInfo>();
         private static readonly object _lock = new object();
 
+        [ThreadStatic]
+        private static string _currentSessionId;
+
+        /// <summary>
+        /// 当前线程活跃的 Agent 会话 ID（供外部观察者读取，如知识服务记录）。
+        /// 由 AgentLoop 在 BeginSession 时设置。
+        /// </summary>
+        public static string CurrentSessionId => _currentSessionId;
+
         /// <summary>
         /// 开始一个 Agent 会话。返回会话 ID。
         /// </summary>
@@ -55,6 +64,7 @@ namespace NPCLife.Framework
             {
                 _activeSessions[sessionId] = info;
             }
+            _currentSessionId = sessionId;
             return sessionId;
         }
 
@@ -73,6 +83,7 @@ namespace NPCLife.Framework
                     _activeSessions.Remove(sessionId);
                 }
             }
+            _currentSessionId = null;
         }
 
         // ================================================================

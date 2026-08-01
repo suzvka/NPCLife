@@ -1,4 +1,5 @@
 using NPCLife.Framework.Llm;
+using System;
 using System.Collections.Generic;
 
 namespace NPCLife.Framework.PromptBlocks
@@ -23,9 +24,11 @@ namespace NPCLife.Framework.PromptBlocks
         public IReadOnlyList<LlmMessage> PreQueriedMessages { get; set; } = System.Array.Empty<LlmMessage>();
 
         /// <summary>
-        /// 工具定义 JSON 字符串（IToolProviderBlock 产出）。
-        /// 可直接赋值给 LlmRequest.ToolsJson。
+        /// [已废弃] 工具定义 JSON 字符串。
+        /// AgentLoop 不再读取此字段，工具统一从 McpSkillRegistry 获取。
+        /// 此字段保留仅为编译兼容。
         /// </summary>
+        [Obsolete("Tools are now managed by AgentLoop via McpSkillRegistry. This field is ignored.")]
         public string ToolsJson { get; set; } = "[]";
     }
 }

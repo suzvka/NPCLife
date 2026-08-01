@@ -4,6 +4,7 @@ using NPCLife.Driver;
 using NPCLife.Framework;
 using NPCLife.Framework.Llm;
 using NPCLife.Framework.Mcp;
+using NPCLife.Framework.PromptBlocks;
 using NPCLife.Workspace;
 using System;
 using System.Collections.Generic;
@@ -48,18 +49,22 @@ namespace NPCLife.Agent
         private readonly ILlmService _llm;
         private readonly ICredentialStore _credentialStore;
         private readonly ILogger _logger;
-        private readonly IPromptBuilder _promptBuilder;
+        private readonly DefaultPromptBuilder _promptBuilder;
         private readonly int _maxRounds;
         private readonly ICardSerializer _serializer;
-        private readonly Action _unsubscribe; // 取消事件订阅的委托
+        private readonly Action _unsubscribe;
+        private readonly Func<int, IReadOnlyList<LlmMessage>> _getRoundTransitionMessages;
+        private readonly ISessionTraceRecorder _traceRecorder;
+        private readonly AgentRole _agentRole;
         private string _currentModelName;
-        private string _currentToolsJson; // 从 Build 结果缓存的工具 JSON
+        private string _currentToolsJson;
         private volatile AgentRunState _state = AgentRunState.Idle;
         private readonly SemaphoreSlim _gate = new SemaphoreSlim(1, 1);
         private readonly CancellationTokenSource _disposeCts = new CancellationTokenSource();
         private static long _runSeq;
         private string _currentRunId;
         private Task _currentRun;
+        private string _metricsSessionId;
 
         private int _round;
         private List<LlmMessage> _messages;
@@ -67,25 +72,26 @@ namespace NPCLife.Agent
 
         /// <summary>
         /// 创建 AgentLoop 并自动订阅工作空间事件池的 OnThresholdReached 事件。
-        /// pool、skillIds、modelRefs 均从 IWorkspace 推导，无需手动传入。
+        /// 系统提示词由 PromptBlockRegistry 聚合所有激活的 ISkillModule 文本块生成，
+        /// 工具由 McpSkillRegistry 从激活技能中统一收集（system 技能优先）。
         /// </summary>
         /// <param name="workspace">绑定的工作空间。Agent 从 ws.EventPool drain 事件，从 ws.SkillSlot 获取工具集，从 ws.ModelRefs 解析凭证。</param>
         /// <param name="deps">基础设施依赖（LLM 服务、凭证、日志等）与行为配置（最大轮数、温度）。由宿主统一注入。</param>
-        /// <param name="promptBuilder">系统提示词构建器。框架默认通过 PromptBlockRegistry 聚合 PromptBlock。宿主可提供自定义实现。</param>
         public AgentLoop(
             IWorkspace workspace,
-            AgentLoopDependencies deps,
-            IPromptBuilder promptBuilder = null)
+            AgentLoopDependencies deps)
         {
             _workspace = workspace ?? throw new ArgumentNullException(nameof(workspace));
             _pool = workspace.EventPool ?? throw new ArgumentException("workspace.EventPool is null", nameof(workspace));
             _llm = deps.Llm ?? throw new ArgumentNullException(nameof(deps.Llm));
             _credentialStore = deps.CredentialStore ?? throw new ArgumentNullException(nameof(deps.CredentialStore));
             _logger = deps.Logger ?? throw new ArgumentNullException(nameof(deps.Logger));
-            _promptBuilder = promptBuilder ?? new DefaultPromptBuilder(_logger);
-            _logger.Message($"[NPCLife.Agent.DIAG] AgentLoop created: ws={workspace?.Id}, promptBuilder={(_promptBuilder is DefaultPromptBuilder ? "Default" : _promptBuilder?.GetType().Name ?? "null")}, loggerAvailable={_logger != null}");
+            _promptBuilder = new DefaultPromptBuilder(_logger);
             _maxRounds = deps.MaxRounds > 0 ? deps.MaxRounds : 10;
             _serializer = deps.Serializer ?? CardSerializer.Default;
+            _getRoundTransitionMessages = deps.GetRoundTransitionMessages;
+            _traceRecorder = deps.TraceRecorder;
+            _agentRole = (AgentRole)workspace.CreatedByRole;
             _pool.OnThresholdReached += OnPoolChanged;
             _unsubscribe = () => _pool.OnThresholdReached -= OnPoolChanged;
         }
@@ -95,14 +101,16 @@ namespace NPCLife.Agent
         // ================================================================
 
         /// <summary>
-        /// 动态获取当前激活的技能 ID 列表（用于工具调用执行）。
+        /// 获取有效技能 ID 列表（含 system）。用于工具查询。
+        /// system 技能始终包含且优先。
         /// </summary>
-        private string[] GetActiveSkillIds()
+        private string[] GetEffectiveSkillIds()
         {
+            var ids = new List<string> { McpSkillRegistry.SystemSkillId };
             var activeIds = _workspace.SkillSlot?.ActiveSkillIds;
             if (activeIds != null && activeIds.Count > 0)
-                return activeIds.ToArray();
-            return Array.Empty<string>();
+                ids.AddRange(activeIds);
+            return ids.ToArray();
         }
 
         private void OnPoolChanged()
@@ -184,29 +192,33 @@ namespace NPCLife.Agent
                 _state = AgentRunState.BuildingRequest;
                 string userMessage = BuildUserMessage(_drained);
 
-                // 管道拦截：允许拦截器（如知识上下文注入）在 prompt 构造后修改用户消息
-                var promptCtx = new PromptContext
-                {
-                    RunId = runId,
-                    Events = _drained,
-                    UserMessage = userMessage
-                };
-                AgentPipeline.RunBeforePrompt(promptCtx);
-
+                // 由 DefaultPromptBuilder 聚合 PromptBlockRegistry 中的文本块
+                // （知识上下文由 KnowledgePreQueryBlock 作为 IToolPreQueryBlock 自动注入，无需管线拦截器）
                 var buildResult = _promptBuilder.Build(_workspace, _drained);
-                _currentToolsJson = buildResult.ToolsJson ?? "[]";
 
-                _logger.Message($"[NPCLife.Agent.DIAG] Build result: systemPromptLen={buildResult.SystemPrompt?.Length ?? 0}, toolsJsonLen={_currentToolsJson.Length}, toolsPreview={(_currentToolsJson.Length > 150 ? _currentToolsJson.Substring(0, 150) : _currentToolsJson)}, primingMsgCount={buildResult.PrimingMessages?.Count ?? 0}, preQueriedMsgCount={buildResult.PreQueriedMessages?.Count ?? 0}");
+                // 拼接动态上下文（来自各 ISkillModule 的 GetDynamicContext）
+                var systemPrompt = BuildSystemPromptWithDynamicContext(buildResult);
+
+                // 工具由 McpSkillRegistry 统一收集（system 优先，自动去重）
+                _currentToolsJson = McpSkillRegistry.GetActiveToolsJson(GetEffectiveSkillIds());
+
+                _logger.Message($"[NPCLife.Agent.DIAG] Build result: systemPromptLen={systemPrompt?.Length ?? 0}, toolsJsonLen={_currentToolsJson.Length}, toolsPreview={(_currentToolsJson.Length > 150 ? _currentToolsJson.Substring(0, 150) : _currentToolsJson)}, primingMsgCount={buildResult.PrimingMessages?.Count ?? 0}, preQueriedMsgCount={buildResult.PreQueriedMessages?.Count ?? 0}");
 
                 _messages = new List<LlmMessage>
                 {
-                    LlmMessage.System(buildResult.SystemPrompt),
+                    LlmMessage.System(systemPrompt),
                 };
                 if (buildResult.PrimingMessages != null && buildResult.PrimingMessages.Count > 0)
                     _messages.AddRange(buildResult.PrimingMessages);
-                _messages.Add(LlmMessage.User(promptCtx.UserMessage));
+                _messages.Add(LlmMessage.User(userMessage));
                 if (buildResult.PreQueriedMessages != null && buildResult.PreQueriedMessages.Count > 0)
                     _messages.AddRange(buildResult.PreQueriedMessages);
+
+                // 会话追踪录制：开始记录
+                _traceRecorder?.BeginRun(runId, _drained, userMessage);
+
+                // 运行时度量：开始新会话
+                _metricsSessionId = RuntimeMetrics.BeginSession(_agentRole);
 
                 // 解析凭证：仅使用当前选中模型，不进行回退
                 var credentials = ResolveCredentials();
@@ -236,20 +248,19 @@ namespace NPCLife.Agent
                     _state = AgentRunState.CallingLlm;
                     var request = BuildLlmRequest();
 
-                    // 管道拦截：LLM 请求前
-                    var llmCtx = new LlmContext { RunId = runId, Round = _round, Request = request };
-                    AgentPipeline.RunBeforeLlm(llmCtx);
-
                     EventBus.Publish(FrameworkEvents.LlmRequestSent, EventArg.WithPayload(
                         ("runId", runId),
                         ("round", _round.ToString()),
                         ("messageCount", _messages.Count.ToString())
                     ));
 
-                    var response = await _llm.ChatAsync(llmCtx.Request, credentials, ct);
+                    var response = await _llm.ChatAsync(request, credentials, ct);
 
                     if (response == null || !response.IsSuccess)
                         throw new InvalidOperationException(response?.Error ?? "null response");
+
+                    // 会话追踪：记录本轮 LLM 交互
+                    _traceRecorder?.RecordLlmRound(runId, _round, _messages, response);
 
                     EventBus.Publish(FrameworkEvents.LlmResponseReceived, EventArg.WithPayload(
                         ("runId", runId),
@@ -260,10 +271,6 @@ namespace NPCLife.Agent
                         ("cacheReadTokens", (response.UsageCacheReadTokens?.ToString() ?? "")),
                         ("model", response.Model ?? "")
                     ));
-
-                    // 管道拦截：LLM 响应后
-                    llmCtx.Response = response;
-                    AgentPipeline.RunAfterLlm(llmCtx);
 
                     if (!response.HasToolCalls)
                     {
@@ -294,28 +301,19 @@ namespace NPCLife.Agent
                         {
                             _logger.Message($"[NPCLife.Agent] [run-{runId}][round-{_round}] Tool call: {tc.Name}({tc.Arguments})");
 
-                            // 管道拦截：工具调用前
-                            var toolCtx = new ToolCallContext { RunId = runId, Round = _round, ToolName = tc.Name, Arguments = tc.Arguments };
-                            AgentPipeline.RunBeforeToolCall(toolCtx);
-
                             EventBus.Publish(FrameworkEvents.ToolInvoking, EventArg.WithPayload(
                                 ("runId", runId),
                                 ("toolName", tc.Name), ("round", _round.ToString())
                             ));
 
-                            string result;
-                            if (toolCtx.Cancelled)
-                            {
-                                result = "{\"error\":\"cancelled by interceptor\"}";
-                            }
-                            else
-                            {
-                                result = McpSkillRegistry.InvokeTool(GetActiveSkillIds(), tc.Name, tc.Arguments);
-                                toolCtx.Result = result;
-                            }
+                            string result = McpSkillRegistry.InvokeTool(GetEffectiveSkillIds(), tc.Name, tc.Arguments);
+                            bool toolSuccess = !IsErrorResult(result);
 
-                            // 管道拦截：工具调用后
-                            AgentPipeline.RunAfterToolCall(toolCtx);
+                            // 运行时度量：记录工具调用
+                            RuntimeMetrics.RecordToolCall(_metricsSessionId, tc.Name, toolSuccess);
+
+                            // 会话追踪：记录工具调用
+                            _traceRecorder?.RecordToolCall(runId, _round, tc.Name, tc.Arguments, result, cancelled: false);
 
                             EventBus.Publish(FrameworkEvents.ToolInvoked, EventArg.WithPayload(
                                 ("runId", runId),
@@ -345,6 +343,14 @@ namespace NPCLife.Agent
                     // 后跟各 tool 的返回结果消息。确保单轮多工具调用时结构正确。
                     _state = AgentRunState.AppendingToolResults;
                     _messages = AppendAssistantTurn(_messages, response, toolResults).ToList();
+
+                    // 轮间过渡钩子：注入轮间消息（如 "别开新对话" 警告）
+                    if (_getRoundTransitionMessages != null)
+                    {
+                        var transitionMsgs = _getRoundTransitionMessages(_round);
+                        if (transitionMsgs != null && transitionMsgs.Count > 0)
+                            _messages.AddRange(transitionMsgs);
+                    }
 
                     EventBus.Publish(FrameworkEvents.AgentRoundComplete, EventArg.WithPayload(
                         ("runId", runId),
@@ -394,15 +400,13 @@ namespace NPCLife.Agent
 
             _logger.Message($"[NPCLife.Agent] Loop complete. {count} events processed. (runId={runId})");
 
-            // 管道拦截：循环结束
-            AgentPipeline.RunLoopFinished(new LoopContext
-            {
-                RunId = runId,
-                Role = (AgentRole)_workspace.CreatedByRole,
-                Rounds = rounds,
-                EventsProcessed = count,
-                NormalCompletion = normalCompletion
-            });
+            // 运行时度量：记录循环完成
+            RuntimeMetrics.RecordLoopFinished(rounds, count, normalCompletion, _agentRole);
+            RuntimeMetrics.EndSession(_metricsSessionId);
+            _metricsSessionId = null;
+
+            // 会话追踪：结束录制
+            _traceRecorder?.EndRun(runId, rounds, count, normalCompletion);
 
             ErrorHandler.EndTrace();
             EventBus.Publish(FrameworkEvents.AgentLoopFinished, EventArg.WithPayload(
@@ -424,8 +428,17 @@ namespace NPCLife.Agent
                 {"drainedCount", (_drained?.Count ?? 0).ToString()}
             });
 
+            int count = _drained?.Count ?? 0;
             _drained = null;
             _messages = null;
+
+            // 运行时度量：记录失败
+            RuntimeMetrics.RecordLoopFinished(_round, count, normalCompletion: false, _agentRole);
+            RuntimeMetrics.EndSession(_metricsSessionId);
+            _metricsSessionId = null;
+
+            // 会话追踪：结束录制
+            _traceRecorder?.EndRun(runId, _round, count, normalCompletion: false);
 
             ErrorHandler.EndTrace();
             EventBus.Publish(FrameworkEvents.AgentLoopFinished, EventArg.WithPayload(
@@ -511,6 +524,40 @@ namespace NPCLife.Agent
             return sb.ToString();
         }
 
+        /// <summary>
+        /// 拼接 DefaultPromptBuilder 产出的 SystemPrompt 与各 ISkillModule 的动态上下文。
+        /// </summary>
+        private string BuildSystemPromptWithDynamicContext(PromptBuildResult buildResult)
+        {
+            var sb = new StringBuilder(buildResult.SystemPrompt ?? "");
+
+            var effectiveIds = GetEffectiveSkillIds();
+            var modules = McpSkillRegistry.GetActiveSkillModules(effectiveIds);
+            if (modules != null && modules.Count > 0)
+            {
+                foreach (var module in modules)
+                {
+                    try
+                    {
+                        var dynamicCtx = module.GetDynamicContext(_workspace, _drained);
+                        if (!string.IsNullOrEmpty(dynamicCtx))
+                        {
+                            sb.AppendLine();
+                            sb.AppendLine("---");
+                            sb.AppendLine();
+                            sb.Append(dynamicCtx);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger?.Warning($"[NPCLife.Agent] GetDynamicContext failed for skill '{module.Id}': {ex.Message}");
+                    }
+                }
+            }
+
+            return sb.ToString();
+        }
+
         // ================================================================
         // 辅助
         // ================================================================
@@ -519,6 +566,14 @@ namespace NPCLife.Agent
         {
             if (string.IsNullOrEmpty(result)) return "(empty)";
             return result.Length > 200 ? result.Substring(0, 200) + "..." : result;
+        }
+
+        private static bool IsErrorResult(string result)
+        {
+            if (string.IsNullOrEmpty(result)) return false;
+            string trimmed = result.TrimStart();
+            return trimmed.StartsWith("{\"error\"", StringComparison.OrdinalIgnoreCase)
+                || trimmed.StartsWith("{\"error:", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>获取当前运行状态。</summary>

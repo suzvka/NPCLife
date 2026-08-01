@@ -1,5 +1,4 @@
 using NPCLife.Cards;
-using NPCLife.Core;
 using NPCLife.Framework.Llm;
 using NPCLife.Framework.Mcp;
 using NPCLife.Framework.PromptBlocks;
@@ -20,7 +19,7 @@ namespace NPCLife.Framework
     /// - IDialoguePrimingBlock → 收集注入消息 → PrimingMessages
     /// - IToolPreQueryBlock → 收集注入消息 → PreQueriedMessages
     /// </summary>
-    public class DefaultPromptBuilder : IPromptBuilder
+    public class DefaultPromptBuilder
     {
         private readonly ILogger _logger;
 
@@ -44,7 +43,6 @@ namespace NPCLife.Framework
             _logger?.Message($"[DefaultPromptBuilder.DIAG] GetActiveBlocks returned {blocks.Count} blocks");
 
             var sb = new StringBuilder();
-            var tools = new List<McpToolDefinition>();
             var priming = new List<LlmMessage>();
             var preQueried = new List<LlmMessage>();
 
@@ -64,15 +62,6 @@ namespace NPCLife.Framework
                         sb.AppendLine(content);
                         sb.AppendLine();
                     }
-                }
-
-                // 工具块 → ToolsJson
-                if (block is IToolProviderBlock toolBlock)
-                {
-                    var blockTools = toolBlock.GetTools();
-                    _logger?.Message($"[DefaultPromptBuilder.DIAG] Block '{block.Id}': IToolProviderBlock, toolCount={blockTools?.Count ?? 0}");
-                    if (blockTools != null && blockTools.Count > 0)
-                        tools.AddRange(blockTools);
                 }
 
                 // 对话注入块 → PrimingMessages
@@ -96,26 +85,11 @@ namespace NPCLife.Framework
             {
                 SystemPrompt = sb.ToString(),
                 PrimingMessages = priming,
-                PreQueriedMessages = preQueried,
-                ToolsJson = SerializeTools(tools)
+                PreQueriedMessages = preQueried
             };
 
-            _logger?.Message($"[DefaultPromptBuilder.DIAG] Build complete: blockCount={blocks.Count}, totalTools={tools.Count}, systemPromptLen={result.SystemPrompt.Length}, toolsJsonLen={result.ToolsJson.Length}");
+            _logger?.Message($"[DefaultPromptBuilder.DIAG] Build complete: blockCount={blocks.Count}, systemPromptLen={result.SystemPrompt.Length}");
             return result;
-        }
-
-        private static string SerializeTools(List<McpToolDefinition> tools)
-        {
-            if (tools.Count == 0) return "[]";
-
-            var sb = new StringBuilder("[\n");
-            for (int i = 0; i < tools.Count; i++)
-            {
-                if (i > 0) sb.Append(",\n");
-                sb.Append(McpToolGenerator.Serialize(tools[i]));
-            }
-            sb.Append("\n]");
-            return sb.ToString();
         }
     }
 }

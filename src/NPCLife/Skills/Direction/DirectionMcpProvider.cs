@@ -6,6 +6,7 @@ using NPCLife.Workspace;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 
 namespace NPCLife.Skills
@@ -19,7 +20,7 @@ namespace NPCLife.Skills
         Name = "剧情分支管理",
         Description = "剧情线的创建、分支、合并、生命周期管理",
         DefaultRoles = new[] { WorkspaceRole.Director })]
-    public class DirectionMcpProvider : IMcpHookProvider
+    public class DirectionMcpProvider : IMcpHookProvider, ISkillModule
     {
         private readonly Func<IWorkspaceManager> _getWorkspaceManager;
         private readonly ILogger _logger;
@@ -30,10 +31,19 @@ namespace NPCLife.Skills
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        // IMcpHookProvider
         public string HookId => "storyline_direction";
         public string HookName => "剧情分支管理";
         public string HookDescription => "剧情线的创建、分支、合并、生命周期管理";
-                public string PromptInstruction => "你是一个无情的事件投递机器，主要判断\"逻辑上事件适合哪个剧情线\"，而非\"编剧接下来可能会怎么写\"。即兴剧情线如果长期闲置会定时唤醒，此时由于没有可用事件会产生幻觉，你有责任避免此事：如果新事件看起来没有前因后果，就推到即兴剧情线。成组推送可以间接定制剧情方向。";
+        public string PromptInstruction => "你是一个无情的事件投递机器，主要判断\"逻辑上事件适合哪个剧情线\"，而非\"编剧接下来可能会怎么写\"。即兴剧情线如果长期闲置会定时唤醒，此时由于没有可用事件会产生幻觉，你有责任避免此事：如果新事件看起来没有前因后果，就推到即兴剧情线。成组推送可以间接定制剧情方向。";
+
+        // ISkillModule
+        string ISkillModule.Id => HookId;
+        string ISkillModule.Name => HookName;
+        string ISkillModule.Description => HookDescription;
+        WorkspaceRole[] ISkillModule.DefaultRoles => GetType().GetCustomAttribute<SkillDefinitionAttribute>()?.DefaultRoles ?? Array.Empty<WorkspaceRole>();
+        string ISkillModule.PromptInstruction => PromptInstruction;
+        string ISkillModule.GetDynamicContext(IWorkspace workspace, IReadOnlyList<IGameEvent> events) => null;
 
         public IReadOnlyList<McpTool> GetTools()
         {
