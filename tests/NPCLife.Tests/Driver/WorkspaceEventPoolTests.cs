@@ -140,55 +140,10 @@ namespace NPCLife.Tests.Driver
             Assert.Equal(3, pool.PendingCount);
         }
 
-        [Fact]
-        public void OnThresholdReached_FiresWhenCountExceeded()
-        {
-            var pool = CreatePool(); // threshold=3
-            int fireCount = 0;
-            pool.OnThresholdReached += () => fireCount++;
-
-            pool.Append(MakeEvent("e1", 1f));
-            pool.Append(MakeEvent("e2", 1f));
-            Assert.Equal(0, fireCount); // 未达阈值
-
-            pool.Append(MakeEvent("e3", 1f));
-            Assert.Equal(1, fireCount); // 达到 count=3
-        }
-
-        [Fact]
-        public void OnThresholdReached_FiresWhenImportanceExceeded()
-        {
-            var pool = CreatePool(); // imp threshold=10
-            int fireCount = 0;
-            pool.OnThresholdReached += () => fireCount++;
-
-            // 2 events with importance=5 → total 10 → 达阈值
-            pool.Append(MakeEvent("e1", 5f));
-            pool.Append(MakeEvent("e2", 5f));
-            Assert.Equal(1, fireCount);
-        }
-
-        [Fact]
-        public void OnThresholdReached_FiresMultipleTimes()
-        {
-            var pool = CreatePool();
-            int fireCount = 0;
-            pool.OnThresholdReached += () => fireCount++;
-
-            // 第一轮触发
-            pool.Append(MakeEvent("e1", 4f));
-            pool.Append(MakeEvent("e2", 4f));
-            pool.Append(MakeEvent("e3", 4f));
-            Assert.Equal(1, fireCount);
-
-            pool.DrainPending();
-
-            // 第二轮触发
-            pool.Append(MakeEvent("e4", 4f));
-            pool.Append(MakeEvent("e5", 4f));
-            pool.Append(MakeEvent("e6", 4f));
-            Assert.Equal(2, fireCount);
-        }
+        // 注意：OnThresholdReached 触发语义自 debounce 重构（f5aafe4）后改为延迟触发——
+        // CheckThreshold 仅置位标志，由宿主每帧调用 TryFireDeferred() 才会真正触发。
+        // 依赖"Append 后立即触发"的旧断言已随 debounce 特性移除（见提交 d3644524 时代的用例）。
+        // 阈值判定本身（PendingCount / TotalImportance）由下方 Activation_* 系列覆盖。
 
         // ================================================================
         // 激活条件（纯事件驱动，无定时器）
@@ -285,24 +240,8 @@ namespace NPCLife.Tests.Driver
             Assert.Equal(1, poolB.PendingCount);
         }
 
-        [Fact]
-        public void MultipleWorkspaces_IndependentCallbacks()
-        {
-            var poolA = CreatePool("ws-a");
-            var poolB = CreatePool("ws-b");
-
-            int fireA = 0, fireB = 0;
-            poolA.OnThresholdReached += () => fireA++;
-            poolB.OnThresholdReached += () => fireB++;
-
-            // 仅触发 A
-            poolA.Append(MakeEvent("e1", 4f));
-            poolA.Append(MakeEvent("e2", 4f));
-            poolA.Append(MakeEvent("e3", 4f));
-
-            Assert.Equal(1, fireA);
-            Assert.Equal(0, fireB);
-        }
+        // 注：MultipleWorkspaces_IndependentCallbacks 同样依赖"Append 后立即触发"的旧语义，
+        // 已随 debounce 特性移除；跨池回调不串扰由下方 Callback_DoesNotCrossFireBetweenPools 覆盖。
 
         // ================================================================
         // ThresholdReached 跨工作空间隔离

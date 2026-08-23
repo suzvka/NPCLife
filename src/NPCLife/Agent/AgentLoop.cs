@@ -336,6 +336,7 @@ namespace NPCLife.Agent
                     {
                         McpSkillRegistry.CurrentWorkspaceId.Value = null;
                         McpSkillRegistry.AbortRequested.Value = false;
+                        McpSkillRegistry.RoundFinished.Value = false;
                     }
 
                     // —— AppendingToolResults ——

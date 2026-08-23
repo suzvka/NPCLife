@@ -108,7 +108,7 @@ namespace NPCLife.Skills
         /// 创建新的剧情线剧情线。创建者角色固定为 Director。
         /// </summary>
         [McpTool(Name = "create_storyline",
-                 Description = "[-10] 创建新的剧情线\\n- 对积分策略的解释：剧情线回收时会有回合积分，因此这里可视作投资本轮积分到可能产生精彩叙事的新剧情线，避免无节制新建。")]
+                 Description = "[-10] 创建新的剧情线\n- 对积分策略的解释：剧情线回收时会有回合积分，因此这里可视作投资本轮积分到可能产生精彩叙事的新剧情线，避免无节制新建。")]
         public string CreateWorkspace(
             [McpParam(Description = "剧情线标题")] string label,
             [McpParam(Description = "剧情分类标签，有多个时用逗号分隔",
