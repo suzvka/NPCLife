@@ -18,7 +18,7 @@ namespace NPCLife.Framework.Llm
         public string ReasoningContent { get; set; }
 
         /// <summary>
-        /// Anthropic Claude Extended Thinking 的思考块列表。
+        /// 模型扩展思考（Extended Thinking）的思考块列表。
         /// 从 content 数组中的 thinking 块解析，后续请求中必须原样传回。
         /// </summary>
         public List<ThinkingBlock> ThinkingBlocks { get; set; }

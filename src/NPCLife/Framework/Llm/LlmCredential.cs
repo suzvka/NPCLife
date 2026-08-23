@@ -6,6 +6,17 @@ using NPCLife.Framework;
 namespace NPCLife.Framework.Llm
 {
     /// <summary>
+    /// LLM API 提供者类型。
+    /// 当前唯一实现渠道为 OpenAI 兼容格式（Ollama、vLLM、中转代理等）。
+    /// 新增厂商格式时：在此追加枚举值 + 在 LlmAccessor.CreateAdapter 增加对应实现。
+    /// </summary>
+    public enum LlmProviderType
+    {
+        /// <summary>OpenAI 及兼容 API（Ollama、vLLM、中转代理等）。</summary>
+        OpenAI
+    }
+
+    /// <summary>
     /// LLM API 凭证。无状态数据类，维护模型名列表以及 API 访问所需的三元组。
     /// 零外部依赖，不持有任何持久化状态。
     /// </summary>
@@ -31,7 +42,7 @@ namespace NPCLife.Framework.Llm
 
         /// <summary>
         /// 对话端点路径，相对于 BaseUrl。默认 /v1/chat/completions（OpenAI 兼容）。
-        /// 当使用非标准路径的代理或 Anthropic API 时，可设为 /v1/messages 等。
+        /// 当 BaseUrl 已包含详细 API 路径或使用自定义网关时，可设为对应路径。
         /// </summary>
         public string ChatEndpoint { get; set; } = "/v1/chat/completions";
 
@@ -111,6 +122,8 @@ namespace NPCLife.Framework.Llm
             w.Prop("timeoutSeconds", TimeoutSeconds);
             w.Prop("chatEndpoint", ChatEndpoint ?? "/v1/chat/completions");
             w.Prop("modelsEndpoint", ModelsEndpoint ?? "/v1/models");
+            if (ExtraHeaders != null && ExtraHeaders.Count > 0)
+                w.PropRaw("extraHeaders", JsonParser.SerializeDict(ExtraHeaders));
             return w.Close();
         }
 
@@ -139,6 +152,12 @@ namespace NPCLife.Framework.Llm
                     cred.ModelsEndpoint = me;
                 if (dict.TryGetValue("chatEndpoint", out string ce))
                     cred.ChatEndpoint = ce;
+                if (dict.TryGetValue("extraHeaders", out string ehJson))
+                {
+                    var headers = JsonParser.ParseDict(ehJson);
+                    if (headers != null && headers.Count > 0)
+                        cred.ExtraHeaders = new Dictionary<string, string>(headers);
+                }
             }
             catch
             {

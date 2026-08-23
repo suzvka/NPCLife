@@ -5,7 +5,7 @@ namespace NPCLife.Core
 {
     /// <summary>
     /// [internal] LLM API 提供者统一接口。
-    /// 每种 API 格式（OpenAI / Anthropic / 本地兼容）实现此接口。
+    /// 每种 API 格式（当前为 OpenAI 兼容格式）实现此接口。
     /// 所有方法在工作线程中同步调用，不阻塞主线程。
     /// 仅 LlmAccessor 内部使用。对外暴露使用 <see cref="ILlmService"/>。
     /// </summary>
@@ -29,7 +29,7 @@ namespace NPCLife.Core
 
         /// <summary>
         /// 列出 API 端可用的模型列表。
-        /// 部分 API 不支持此功能（如 Anthropic），返回空数组。
+        /// 部分 API 不支持此功能，返回空数组。
         /// </summary>
         string[] ListModels();
     }

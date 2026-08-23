@@ -117,8 +117,6 @@ namespace NPCLife.Infrastructure.Llm
 
                 for (int i = 0; i < credentials.Count; i++)
                 {
-                    ct.ThrowIfCancellationRequested();
-
                     var credential = credentials[i];
                     if (credential == null || !credential.IsChatReady())
                     {
@@ -128,6 +126,10 @@ namespace NPCLife.Infrastructure.Llm
 
                     try
                     {
+                        // 取消检查必须位于 try 内：若 OCE 逃逸出 Task.Run lambda，
+                        // tcs 将永不完成，调用方的 await 会永久挂起。
+                        ct.ThrowIfCancellationRequested();
+
                         // 每次尝试用独立的请求副本（避免前次修改污染）
                         var attemptRequest = CloneRequest(request);
 
@@ -276,20 +278,16 @@ namespace NPCLife.Infrastructure.Llm
 
         /// <summary>
         /// 根据凭证创建适配器。每次调用创建新实例（包括新 HttpClient）。
+        ///
+        /// 适配器抽象（ILlmApiProvider）保留：当前唯一实现渠道为 OpenAI 兼容格式。
+        /// 新增厂商格式时在此扩展——追加 LlmProviderType 枚举值并返回对应适配器。
         /// </summary>
         internal ILlmApiProvider CreateAdapter(LlmCredential credential)
         {
             if (credential == null)
                 throw new ArgumentNullException(nameof(credential));
 
-            switch (credential.ProviderType)
-            {
-                case LlmProviderType.Anthropic:
-                    return new AnthropicAdapter(credential, _logger);
-                case LlmProviderType.OpenAI:
-                default:
-                    return new OpenAiAdapter(credential, _logger);
-            }
+            return new OpenAiAdapter(credential, _logger);
         }
 
         /// <summary>

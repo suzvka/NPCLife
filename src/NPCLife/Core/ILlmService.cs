@@ -40,7 +40,7 @@ namespace NPCLife.Core
 
         /// <summary>
         /// 异步列出 API 端可用的模型列表。
-        /// 部分 API 不支持此功能（如 Anthropic），返回空数组。
+        /// 部分 API 不支持此功能，返回空数组。
         /// </summary>
         /// <param name="credential">用于查询的凭证。</param>
         /// <param name="ct">取消令牌。</param>

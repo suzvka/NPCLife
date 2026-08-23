@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace NPCLife.Framework.Llm
 {
     /// <summary>
-    /// Anthropic Claude Extended Thinking 的思考内容块。
+    /// 模型扩展思考（Extended Thinking）的思考内容块。
     /// 包含思考文本和签名，后续请求中必须原样传回。
     /// </summary>
     public class ThinkingBlock
@@ -33,7 +33,7 @@ namespace NPCLife.Framework.Llm
         public string ReasoningContent { get; set; }
 
         /// <summary>
-        /// Anthropic Claude Extended Thinking 的思考块列表。
+        /// 模型扩展思考（Extended Thinking）的思考块列表。
         /// 从 content 数组中的 thinking 块解析，序列化时插入到 content 数组。
         /// </summary>
         public List<ThinkingBlock> ThinkingBlocks { get; set; }

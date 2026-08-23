@@ -46,9 +46,8 @@ namespace NPCLife.Infrastructure.Llm
             try
             {
                 string requestJson = BuildChatRequest(request);
-                // 调试：记录请求 JSON
-                _logger?.Message($"[NPCLife.OpenAiAdapter] Request JSON: {TruncateJson(requestJson)}");
-                
+                // 注意：不记录请求体——其中包含完整对话内容，避免日志泄漏。
+                // 错误路径的响应体（含 API 错误详情）由 SendHttpRequest 截断记录。
                 string responseJson = SendHttpRequest(_config.ChatEndpoint ?? "/v1/chat/completions", requestJson);
                 var response = ParseChatResponse(responseJson);
                 
@@ -331,9 +330,11 @@ namespace NPCLife.Infrastructure.Llm
                         {
                             var msgDict = JsonParser.ParseDict(messageJson);
 
-                            // content
+                            // content：JSON 的 null（推理模型正常返回 "content": null）会被
+                            // JsonParser 裸值分支解析为字符串 "null"，此处归一为 null，
+                            // 避免下游把字面 "null" 当作真实内容。
                             if (msgDict.TryGetValue("content", out string content))
-                                result.Content = content;
+                                result.Content = content == "null" ? null : content;
 
                             // reasoning_content（thinking mode，后续请求必须原样传回）
                             if (msgDict.TryGetValue("reasoning_content", out string reasoningContent))
