@@ -62,9 +62,9 @@ namespace NPCLife.Framework.PromptBlocks
         internal static void RegisterLinkedFromProvider(IMcpHookProvider provider)
         {
             if (provider == null) return;
-            var block = new SkillPromptBlock(provider);
+            var block = new SkillPromptBlock(new HookProviderModuleAdapter(provider));
             RegisterLinked(provider.HookId, block);
-            Logger?.Message($"[PromptBlockRegistry.DIAG] Registered SkillPromptBlock (legacy): skillId='{provider.HookId}', header='{provider.HookName}', hasText={!string.IsNullOrEmpty(provider.PromptInstruction)}");
+            Logger?.Message($"[PromptBlockRegistry.DIAG] Registered SkillPromptBlock: skillId='{provider.HookId}', header='{provider.HookName}', hasText={!string.IsNullOrEmpty(provider.PromptInstruction)}");
         }
 
         /// <summary>

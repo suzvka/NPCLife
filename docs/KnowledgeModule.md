@@ -18,7 +18,6 @@ public interface IKnowledgeService
     void Store(KnowledgeEntry entry);
     void Delete(string term);
     IReadOnlyList<KnowledgeEntry> ListAll();
-    IReadOnlyList<KnowledgeEntry> ListByTags(IReadOnlyList<string> tags);
     IReadOnlyList<KnowledgeEntry> ListByPrefix(string prefix);
 }
 ```
@@ -28,7 +27,7 @@ public interface IKnowledgeService
 | `Lookup(term)` | 返回所有来源的匹配结果。调用方根据 `KnowledgeEntry.Source` 区分出处。无命中返回空列表。 |
 | `Store(entry)` | 存储/覆盖。Term 为空时静默忽略。 |
 | `Delete(term)` | 不存在时静默返回，不抛异常。 |
-| `ListAll` / `ListByTags` / `ListByPrefix` | 用于 Agent 探索已知知识范围。 |
+| `ListAll` / `ListByPrefix` | 用于 Agent 探索已知知识范围。 |
 
 ---
 
@@ -38,11 +37,9 @@ public interface IKnowledgeService
 // Core/KnowledgeEntry.cs
 public class KnowledgeEntry
 {
-    public string Term;            // 词条名（大小写不敏感）
+    public string Term;            // 词条名（大小写不敏感，主键）
     public string Definition;      // 释义文本
     public string Source;          // 来源名，如 "BuiltIn"、"GameDef"、"Wiki"、"AgentDeduction"、"RAG"
-    public float Confidence;       // 信心度 0.0~1.0
-    public List<string> ContextTags; // 语义标签
 }
 ```
 
@@ -73,7 +70,7 @@ public class KnowledgeService : IKnowledgeService
 - 代理到 `writableCache`
 - 外部源为只读，不受写入影响
 
-**列举逻辑** (`ListAll` / `ListByTags` / `ListByPrefix`)：
+**列举逻辑** (`ListAll` / `ListByPrefix`)：
 - 代理到 `writableCache`
 
 ### 3.1 内部组件接口
@@ -90,7 +87,6 @@ public interface IKnowledgeBase
     void Store(KnowledgeEntry entry);
     void Delete(string term);
     IReadOnlyList<KnowledgeEntry> ListByPrefix(string prefix);
-    IReadOnlyList<KnowledgeEntry> ListByTags(IReadOnlyList<string> tags);
     IReadOnlyList<KnowledgeEntry> ListAll();
 }
 ```
@@ -127,10 +123,9 @@ var externals = new List<IExternalKnowledgeSource>
 
 var knowledge = new KnowledgeService(cache, externals);
 
-var agent = new AgentLoop(
-    pool, llm, credentials, prompt, skills, maxRounds, logger,
-    knowledgeService: knowledge   // IKnowledgeService
-);
+// 框架组件通过延迟委托消费 IKnowledgeService
+var knowledgeProvider = new KnowledgeMcpProvider(() => knowledge, logger);
+McpSkillRegistry.RegisterModule(knowledgeProvider);
 ```
 
 ### 4.2 第三方自定义实现
@@ -163,12 +158,12 @@ public class MyDbKnowledgeService : IKnowledgeService
         return _db.Query("SELECT * FROM knowledge ORDER BY term").ToList();
     }
 
-    // ... ListByTags, ListByPrefix 同理
+    // ... ListByPrefix 同理
 }
 
 // 直接注入，框架无感知
 var knowledge = new MyDbKnowledgeService(dbConnection);
-var agent = new AgentLoop(..., knowledgeService: knowledge);
+var knowledgeProvider = new KnowledgeMcpProvider(() => knowledge, logger);
 ```
 
 ---
@@ -188,9 +183,7 @@ public class GameDefKnowledgeSource : IExternalKnowledgeSource
         if (_defs.TryGetValue(term, out var def))
             return new[] { new KnowledgeEntry
             {
-                Term = term, Definition = def,
-                Source = "GameDef", Confidence = 1.0f,
-                ContextTags = new List<string> { "GameDef" }
+                Term = term, Definition = def, Source = "GameDef"
             }};
         return Array.Empty<KnowledgeEntry>();
     }
@@ -209,9 +202,7 @@ public class RagKnowledgeSource : IExternalKnowledgeSource
         var results = _store.Search(term, topK: 3, minScore: 0.95f);
         return results.Select(r => new KnowledgeEntry
         {
-            Term = term, Definition = r.Content,
-            Source = "RAG", Confidence = r.Score,
-            ContextTags = r.Tags
+            Term = term, Definition = r.Content, Source = "RAG"
         }).ToList();
     }
 }

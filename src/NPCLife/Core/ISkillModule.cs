@@ -1,7 +1,6 @@
 using NPCLife.Cards;
 using NPCLife.Framework.Mcp;
 using NPCLife.Workspace;
-using System;
 using System.Collections.Generic;
 
 namespace NPCLife.Core
@@ -58,33 +57,5 @@ namespace NPCLife.Core
         /// McpTool.SourceSkillId 由框架在 RegisterModule() 时自动设置为 this.Id。
         /// </summary>
         IReadOnlyList<McpTool> GetTools();
-    }
-
-    /// <summary>
-    /// ISkillModule 的便捷基类。为纯文本/纯工具/混合模块提供默认实现。
-    /// 子类只需覆写需要的成员。
-    /// </summary>
-    public abstract class SkillModuleBase : ISkillModule
-    {
-        /// <inheritdoc />
-        public abstract string Id { get; }
-
-        /// <inheritdoc />
-        public abstract string Name { get; }
-
-        /// <inheritdoc />
-        public virtual string Description => string.Empty;
-
-        /// <inheritdoc />
-        public virtual WorkspaceRole[] DefaultRoles => Array.Empty<WorkspaceRole>();
-
-        /// <inheritdoc />
-        public virtual string PromptInstruction => null;
-
-        /// <inheritdoc />
-        public virtual string GetDynamicContext(IWorkspace workspace, IReadOnlyList<IGameEvent> events) => null;
-
-        /// <inheritdoc />
-        public virtual IReadOnlyList<McpTool> GetTools() => Array.Empty<McpTool>();
     }
 }

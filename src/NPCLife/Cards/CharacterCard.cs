@@ -45,26 +45,4 @@ namespace NPCLife.Cards
         /// <summary>互动结果标签。</summary>
         public string Outcome;
     }
-
-    /// <summary>
-    /// 短期记忆详情：完整结构化条目，用于 full view。
-    /// </summary>
-    public struct ShortTermMemoryDetail
-    {
-        public int Tick;
-        public string Type;
-        public string Summary;
-        public string RelatedPawnId;
-    }
-
-    /// <summary>
-    /// 长期记忆详情：完整结构化条目，用于 full view。
-    /// </summary>
-    public struct LongTermMemoryDetail
-    {
-        public int ConsolidatedTick;
-        public string Topic;
-        public string Summary;
-        public List<string> RelatedPawnIds;
-    }
 }

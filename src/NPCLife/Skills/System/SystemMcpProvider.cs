@@ -16,20 +16,18 @@ namespace NPCLife.Skills
     public class SystemMcpProvider : IMcpHookProvider, ISkillModule
     {
         private readonly Func<IWorkspaceManager> _getWorkspaceManager;
-        private readonly Func<string> _getTime;
         private readonly ILogger _logger;
 
-        public SystemMcpProvider(Func<IWorkspaceManager> getWorkspaceManager, Func<string> getTime, ILogger logger)
+        public SystemMcpProvider(Func<IWorkspaceManager> getWorkspaceManager, ILogger logger)
         {
             _getWorkspaceManager = getWorkspaceManager ?? throw new ArgumentNullException(nameof(getWorkspaceManager));
-            _getTime = getTime ?? throw new ArgumentNullException(nameof(getTime));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         // IMcpHookProvider
         public string HookId => McpSkillRegistry.SystemSkillId;
         public string HookName => "系统";
-        public string HookDescription => "系统元工具集（技能列表、激活、反激活、当前时间）";
+        public string HookDescription => "系统元工具集（技能列表、激活、反激活）";
         public string PromptInstruction => null;
 
         // ISkillModule
@@ -129,28 +127,6 @@ namespace NPCLife.Skills
             catch (Exception e)
             {
                 _logger.Warning($"[NPCLife.SystemMcp] deactivate_skill({skillId}) failed: {e.Message}");
-                return "{\"error\":true,\"message\":" + JsonHelper.Quote(e.Message) + "}";
-            }
-        }
-
-        /// <summary>
-        /// 获取当前游戏时间字符串。时间信息通常随 Agent 唤醒事件一同注入，
-        /// 此工具仅在 Agent 需要主动获取当前时间时使用。
-        /// </summary>
-        //[McpTool(Name = "get_current_time",
-        //        Description = "获取当前游戏时间的格式化字符串。返回值为游戏侧提供的原样时间文本（如 '第2年·夏季·第5天·14h'）。")]
-        public string GetCurrentTime()
-        {
-            try
-            {
-                string time = _getTime();
-                if (time == null)
-                    return "{\"error\":true,\"message\":\"TimeProvider returned null.\"}";
-                return "{\"time\":" + JsonHelper.Quote(time) + "}";
-            }
-            catch (Exception e)
-            {
-                _logger.Warning($"[NPCLife.SystemMcp] get_current_time failed: {e.Message}");
                 return "{\"error\":true,\"message\":" + JsonHelper.Quote(e.Message) + "}";
             }
         }
