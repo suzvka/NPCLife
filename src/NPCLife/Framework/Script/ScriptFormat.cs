@@ -187,7 +187,7 @@ namespace NPCLife.Framework.Script
         }
 
         /// <summary>
-        /// 解析类型字符串为 ScriptLineType。供外部（如 PushLine）使用。
+        /// 解析类型字符串为 ScriptLineType（无法识别时回退为 Dialogue）。
         /// </summary>
         public static ScriptLineType ParseLineType(string val)
         {

@@ -13,8 +13,8 @@ namespace NPCLife.Core
         /// 框架推送一批解析完成的台词行。
         /// 游戏侧负责基于 Tick 的时间轴调度显示。
         /// </summary>
-        /// <param name="workspaceId">来源工作空间 ID。</param>
-        /// <param name="roundSeq">本轮在工作空间中的序号。</param>
+        /// <param name="workspaceId">说话者上下文键（由投递车道填入，见 <c>UtteranceDelivery</c>）。</param>
+        /// <param name="roundSeq">递增序号（每次投递 +1）。</param>
         /// <param name="lines">已解析并填充 SpeakerName 的台词行列表。</param>
         void OnScriptLinesReady(string workspaceId, int roundSeq,
             IReadOnlyList<ScriptLine> lines);

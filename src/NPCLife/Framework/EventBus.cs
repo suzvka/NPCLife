@@ -10,8 +10,8 @@ namespace NPCLife.Framework
     /// 纯静态，零外部依赖。
     ///
     /// 使用示例：
-    ///   var unsub = EventBus.Subscribe("agent.activated", args => { ... });
-    ///   EventBus.Publish("agent.activated", new EventArgs { Payload = ... });
+    ///   var unsub = EventBus.Subscribe("llm.error", args => { ... });
+    ///   EventBus.Publish("llm.error", new EventArgs { Payload = ... });
     ///   unsub();  // 取消订阅
     /// </summary>
     public static class EventBus
@@ -39,7 +39,7 @@ namespace NPCLife.Framework
         /// 订阅事件。返回的 Action 调用即可取消订阅（等价于 off）。
         /// priority 越小越先执行（0 为默认优先级）。
         /// </summary>
-        /// <param name="eventName">事件名（点分命名空间，如 "agent.activated"）。</param>
+        /// <param name="eventName">事件名（点分命名空间，如 "llm.error"）。</param>
         /// <param name="handler">事件处理器。</param>
         /// <param name="priority">执行优先级，数字越小越先执行。</param>
         /// <returns>取消订阅的 Action，调用即取消。</returns>
@@ -181,7 +181,7 @@ namespace NPCLife.Framework
 
     /// <summary>
     /// 预定义框架事件名常量。
-    /// 命名空间约定：模块.动作（如 agent.activated, workspace.created）。
+    /// 命名空间约定：模块.动作（如 framework.initialized, llm.error）。
     /// </summary>
     public static class FrameworkEvents
     {
@@ -199,20 +199,6 @@ namespace NPCLife.Framework
         /// <summary>存档已卸载（切换前）。</summary>
         public const string SaveUnloaded = "save.unloaded";
 
-        // ---- Agent ----
-        /// <summary>Agent 循环已激活（事件池阈值达到）。</summary>
-        public const string AgentActivated = "agent.activated";
-        /// <summary>Agent 完成一轮工具调用。</summary>
-        public const string AgentRoundComplete = "agent.round_complete";
-        /// <summary>Agent 循环结束（所有轮次完成或异常终止）。</summary>
-        public const string AgentLoopFinished = "agent.loop_finished";
-
-        // ---- 工具调用 ----
-        /// <summary>MCP 工具即将被调用。</summary>
-        public const string ToolInvoking = "tool.invoking";
-        /// <summary>MCP 工具已调用完成。</summary>
-        public const string ToolInvoked = "tool.invoked";
-
         // ---- LLM ----
         /// <summary>LLM 请求已发送。</summary>
         public const string LlmRequestSent = "llm.request_sent";
@@ -220,20 +206,6 @@ namespace NPCLife.Framework
         public const string LlmResponseReceived = "llm.response_received";
         /// <summary>LLM 调用出错。</summary>
         public const string LlmError = "llm.error";
-
-        // ---- 工作空间 ----
-        /// <summary>工作空间已创建。</summary>
-        public const string WorkspaceCreated = "workspace.created";
-        /// <summary>工作空间已关闭/废弃。</summary>
-        public const string WorkspaceClosed = "workspace.closed";
-        /// <summary>工作空间已更新（回合推送、信号上报、状态变更、分支/合并等）。</summary>
-        public const string WorkspaceUpdated = "workspace.updated";
-
-        // ---- 台词 ----
-        /// <summary>单句台词已就绪，ScriptDeliveryService 将逐行推送到游戏侧。</summary>
-        public const string ScriptLineReady = "script.line_ready";
-        /// <summary>台词轮次完成（finish_round 调用后）。</summary>
-        public const string ScriptReady = "script.ready";
 
         // ---- 记忆 ----
         /// <summary>记忆巩固完成。</summary>

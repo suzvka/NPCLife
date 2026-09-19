@@ -9,7 +9,7 @@
     <LangVersion>12.0</LangVersion>
     <Version>1.1.0</Version>
     <Authors>NPCLife Contributors</Authors>
-    <Description>NPCLife - General-purpose LLM-driven narrative framework. Multi-agent pipeline with Director/Screenwriter/Improviser roles, MCP tool protocol, workspace-based storyline management, and LLM backend integration. Game-agnostic core with host-injected adapters.</Description>
+    <Description>NPCLife - General-purpose LLM-driven narrative framework. Cone-alignment utterance pipeline: append-only event stream, zero-LLM cone filtering and deterministic salience scoring, single writer LLM at utterance-consumption time with Tier 0/1/2 cost layering. Game-agnostic core with host-injected adapters.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>

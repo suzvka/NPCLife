@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace NPCLife.Core
 {
     /// <summary>
-    /// 知识服务公共接口。框架组件（AgentLoop、KnowledgeMcpProvider）通过此接口消费知识库能力，
+    /// 知识服务公共接口。框架组件（如写手材料装配的锚点检索）通过此接口消费知识库能力，
     /// 不关心背后的知识源组织和存储方式。
     ///
     /// 框架提供默认实现 KnowledgeService（内部聚合 BuiltInKnowledgeBase + IExternalKnowledgeSource），

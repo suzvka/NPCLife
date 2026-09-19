@@ -69,7 +69,7 @@ namespace NPCLife.Framework
         /// 注册组件状态报告器。HealthCheck 时会调用所有报告器。
         /// 重复注册同名组件会替换旧报告器。
         /// </summary>
-        /// <param name="componentName">组件名（如 "EventLog", "Llm", "Workspace"）。</param>
+        /// <param name="componentName">组件名（如 "EventStream", "Llm", "Writer"）。</param>
         /// <param name="reporter">状态报告函数，返回 ComponentStatus。</param>
         public static void RegisterReporter(string componentName, Func<ComponentStatus> reporter)
         {

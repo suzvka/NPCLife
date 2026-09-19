@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace NPCLife.Cards
 {
     /// <summary>
-    /// 目标卡：通用抽象——导演 Agent 在任何游戏中都需要「当前被追踪的目标」信息。
+    /// 目标卡：通用抽象——叙事管线在任何游戏中都需要「当前被追踪的目标」信息。
     /// 游戏的 Quest/Task 系统仅为其中一个数据来源（Source = "QuestSystem"）。
     /// 纯 DTO，由宿主填充数据。
     /// </summary>

@@ -6,7 +6,7 @@ namespace NPCLife.Framework.Mcp
 {
     /// <summary>
     /// Card DTO → JSON 序列化接口。
-    /// AgentLoop 通过此接口解耦序列化实现，便于测试注入。
+    /// 组件通过此接口解耦序列化实现，便于测试注入。
     /// Infrastructure 层可直接使用 <see cref="CardSerializer.Default"/> 静态实例。
     /// </summary>
     public interface ICardSerializer
@@ -17,7 +17,7 @@ namespace NPCLife.Framework.Mcp
         /// <summary>反序列化事件 JSON → IGameEvent。</summary>
         IGameEvent DeserializeEvent(string json);
 
-        /// <summary>序列化事件 KV 缓存（供 WorkspaceState 持久化）。</summary>
+        /// <summary>序列化事件 KV 缓存（供事件流持久化）。</summary>
         string SerializeEventCache(Dictionary<string, string> eventCache);
 
         /// <summary>反序列化事件 KV 缓存。</summary>

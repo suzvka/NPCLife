@@ -79,7 +79,7 @@ namespace NPCLife.Framework.Mcp
         }
 
         /// <summary>
-        /// 序列化事件 KV 缓存为 JSON 对象。供 WorkspaceState 持久化。
+        /// 序列化事件 KV 缓存为 JSON 对象。供事件流持久化。
         /// </summary>
         public string SerializeEventCache(Dictionary<string, string> eventCache)
         {

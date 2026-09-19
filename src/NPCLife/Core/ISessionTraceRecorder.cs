@@ -5,11 +5,11 @@ using System.Collections.Generic;
 namespace NPCLife.Core
 {
     /// <summary>
-    /// 会话追踪录制器。AgentLoop 在各关键节点调用此接口记录
+    /// 会话追踪录制器。管线在各关键节点调用此接口记录
     /// 运行全文（事件、消息、工具调用），用于离线分析和 Dashboard 展示。
     ///
-    /// 注入方式：通过 AgentLoopDependencies.TraceRecorder 注入。
-    /// null 时 AgentLoop 跳过所有录制调用（零开销）。
+    /// 注入方式：由宿主组合根在装配管线时注入。
+    /// null 时跳过所有录制调用（零开销）。
     /// </summary>
     public interface ISessionTraceRecorder
     {

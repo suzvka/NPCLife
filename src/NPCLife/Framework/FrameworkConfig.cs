@@ -1,4 +1,3 @@
-using NPCLife.Driver;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -6,7 +5,7 @@ using System.Globalization;
 namespace NPCLife.Framework
 {
     /// <summary>
-    /// 框架全局配置。统一管理驱动参数和诊断开关。
+    /// 框架全局配置。统一管理诊断开关。
     /// 纯数据类，零外部依赖。
     ///
     /// 合并优先级（低→高）：
@@ -19,9 +18,6 @@ namespace NPCLife.Framework
         private bool _frozen;
 
         // ---- 子配置区域 ----
-
-        /// <summary>Agent 驱动配置区。</summary>
-        public DriverConfig Driver { get; set; }
 
         /// <summary>诊断配置区。</summary>
         public DiagnosticSection Diagnostics { get; set; }
@@ -53,18 +49,7 @@ namespace NPCLife.Framework
         public List<string> Validate()
         {
             var errors = new List<string>();
-
-            if (Driver == null) errors.Add("Driver section is null.");
-            else
-            {
-                if (Driver.DirectorCountThreshold < 1) errors.Add("Driver.DirectorCountThreshold must be >= 1.");
-                if (Driver.DirectorImportanceThreshold < 1f) errors.Add("Driver.DirectorImportanceThreshold must be >= 1.");
-                if (Driver.MaxAgentRounds < 1 || Driver.MaxAgentRounds > 100)
-                    errors.Add("Driver.MaxAgentRounds must be between 1 and 100.");
-            }
-
             if (Diagnostics == null) errors.Add("Diagnostics section is null.");
-
             return errors;
         }
 
@@ -76,20 +61,6 @@ namespace NPCLife.Framework
         public string ToJson()
         {
             var w = new JsonWriter(512);
-
-            // Driver
-            var dw = new JsonWriter(256);
-            var d = Driver ?? DriverConfig.CreateDefault();
-            dw.Prop("directorCountThreshold", d.DirectorCountThreshold);
-            dw.Prop("directorImportanceThreshold", d.DirectorImportanceThreshold, "F2");
-            dw.Prop("freelancerCountThreshold", d.ImproviserCountThreshold);
-            dw.Prop("freelancerImportanceThreshold", d.ImproviserImportanceThreshold, "F2");
-            dw.Prop("screenwriterCountThreshold", d.ScreenwriterCountThreshold);
-            dw.Prop("screenwriterImportanceThreshold", d.ScreenwriterImportanceThreshold, "F2");
-            dw.Prop("directorTimerInterval", d.DirectorTimerInterval);
-            dw.Prop("freelancerTimerInterval", d.ImproviserTimerInterval);
-            dw.Prop("maxAgentRounds", d.MaxAgentRounds);
-            w.PropRaw("driver", dw.Close());
 
             // Diagnostics
             var diag = new JsonWriter(128);
@@ -113,31 +84,6 @@ namespace NPCLife.Framework
             try
             {
                 var dict = JsonParser.ParseDict(json);
-
-                if (dict.TryGetValue("driver", out string driverJson))
-                {
-                    var dd = JsonParser.ParseDict(driverJson);
-                    var dc = DriverConfig.CreateDefault();
-                    if (dd.TryGetValue("directorCountThreshold", out string dct) && int.TryParse(dct, out int dctv))
-                        dc.DirectorCountThreshold = dctv;
-                    if (dd.TryGetValue("directorImportanceThreshold", out string dit) && float.TryParse(dit, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float ditv))
-                        dc.DirectorImportanceThreshold = ditv;
-                    if (dd.TryGetValue("freelancerCountThreshold", out string fct) && int.TryParse(fct, out int fctv))
-                        dc.ImproviserCountThreshold = fctv;
-                    if (dd.TryGetValue("freelancerImportanceThreshold", out string fit) && float.TryParse(fit, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float fitv))
-                        dc.ImproviserImportanceThreshold = fitv;
-                    if (dd.TryGetValue("screenwriterCountThreshold", out string sct) && int.TryParse(sct, out int sctv))
-                        dc.ScreenwriterCountThreshold = sctv;
-                    if (dd.TryGetValue("screenwriterImportanceThreshold", out string sit) && float.TryParse(sit, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float sitv))
-                        dc.ScreenwriterImportanceThreshold = sitv;
-                    if (dd.TryGetValue("directorTimerInterval", out string dti) && int.TryParse(dti, out int dtiv))
-                        dc.DirectorTimerInterval = dtiv;
-                    if (dd.TryGetValue("freelancerTimerInterval", out string fti) && int.TryParse(fti, out int ftiv))
-                        dc.ImproviserTimerInterval = ftiv;
-                    if (dd.TryGetValue("maxAgentRounds", out string mar) && int.TryParse(mar, out int marv))
-                        dc.MaxAgentRounds = marv;
-                    config.Driver = dc;
-                }
 
                 if (dict.TryGetValue("diagnostics", out string diagJson))
                 {
@@ -165,7 +111,6 @@ namespace NPCLife.Framework
         {
             return new FrameworkConfig
             {
-                Driver = DriverConfig.CreateDefault(),
                 Diagnostics = new DiagnosticSection()
             };
         }

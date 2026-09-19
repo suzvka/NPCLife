@@ -6,7 +6,7 @@ namespace NPCLife.Core
     /// <summary>
     /// 交互历史存储抽象接口。
     /// append-only 流水，自然膨胀不裁剪，持久化到存档文件。
-    /// 语义层 KV 由上层（总导演或工作空间）按需触发计算，写入 CacheStore。
+    /// 语义层 KV 由上层（如视锥听闻传播检索）按需触发计算，写入 CacheStore。
     /// </summary>
     public interface IInteractionStore
     {

@@ -13,7 +13,7 @@ namespace NPCLife.Framework
     ///   ErrorHandler.OnError(ctx => { /* 上报、降级、记录 */ });
     ///
     ///   // 框架内部报告错误
-    ///   ErrorHandler.ReportError("AgentLoop", exception);
+    ///   ErrorHandler.ReportError("UtterancePipeline", exception);
     ///
     ///   // 请求链路追踪
     ///   var traceId = ErrorHandler.BeginTrace();
@@ -91,7 +91,7 @@ namespace NPCLife.Framework
         /// <summary>
         /// 报告异常错误。自动关联当前 TraceId。
         /// </summary>
-        /// <param name="source">来源模块名（如 "AgentLoop", "LlmAccessor", "McpTool"）。</param>
+        /// <param name="source">来源模块名（如 "UtterancePipeline", "LlmAccessor", "Writer"）。</param>
         /// <param name="ex">原始异常。</param>
         /// <param name="metadata">额外上下文元数据（可选）。</param>
         public static void ReportError(string source, Exception ex, Dictionary<string, string> metadata = null)
@@ -185,7 +185,7 @@ namespace NPCLife.Framework
     /// </summary>
     public class ErrorContext
     {
-        /// <summary>来源模块名（如 "AgentLoop", "LlmAccessor", "McpTool"）。</summary>
+        /// <summary>来源模块名（如 "UtterancePipeline", "LlmAccessor", "Writer"）。</summary>
         public string Source;
 
         /// <summary>错误描述。</summary>
